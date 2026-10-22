@@ -20,7 +20,7 @@ Status values: `not started` · `in progress` · `blocked` · `done`
 | 0 | Design docs (DESIGN, AGENTS, PROGRESS) | done | 2026-10-22 |
 | 1 | Repo scaffold + Docker demo env (`wp-vuln` on 127.0.0.1, `wp-db`, `wp-cron`, `mailpit`) | done | 2026-10-22: WordPress 7.1.3 on PHP 8.3.30 (mod_php), localhost only. Platform service gets added to compose in step 2 |
 | 2 | Platform skeleton: FastAPI app, settings, SQLAlchemy models, Alembic | done | 2026-10-22: 20 tables, first migration, 13 tests passing; `platform` service at 127.0.0.1:8000 |
-| 3 | Version engine + matcher with table-driven tests | not started | Distro suffixes, RHEL, unsupported branches |
+| 3 | Version engine + matcher with table-driven tests | done | 2026-10-22: `app/engine/` (versions, matcher, catalogue) + PHP2Shell fixture; 139 engine tests |
 | 4 | Enrollment + signed Report API (validation, nonce, dedupe) | not started | |
 | 5 | Plugin: inventory, signing, hourly cron, Report now, transparency page | not started | PHP 7.4 compatible, no banned functions |
 | 6 | Advisory replay (PHP2Shell + drill plugin advisory), incidents, cases, scoring | not started | |
@@ -61,6 +61,10 @@ Status values: `not started` · `in progress` · `blocked` · `done`
 
 | Date | Decision | Why |
 |---|---|---|
+| 2026-10-22 | OS-provided components (`php-ext`, `lib`, `db`, `server`) inside an affected range are always needs_check | The OS or host backports fixes, and the plugin can't see package versions for these |
+| 2026-10-22 | Ubuntu and Debian PHP builds are judged by distro fix data (dpkg comparison) before the "unsupported branch" rule | Ubuntu still patches its own PHP 8.1 even though upstream has ended it |
+| 2026-10-22 | Range format: OSV-style `introduced` + one of `fixed` / `last_affected` / `limit` (+`unsupported`). Broken or empty ranges mean needs_check with "advisory needs review" | One clear format for every feed; bad advisory data can never produce "safe" |
+| 2026-10-22 | The PHP2Shell fixture records no CVSS vector (not verified); `network_unauthenticated: true` is taken from the advisory text instead | Don't invent data; scoring (step 6) reads that flag |
 | 2026-10-22 | Enum columns are stored as strings with CHECK constraints. All datetimes go through `UTCDateTime`, which rejects naive values. Constraint names follow a fixed naming convention | Bad values can't slip into the DB; time zones stay unambiguous (the team is in IST, clients in the US); Alembic's SQLite batch migrations need stable names |
 | 2026-10-22 | `reports.schema` from DESIGN §5.2 is named `schema_version` in code | Avoids a confusing name clash with SQL "schema"; same meaning |
 | 2026-10-22 | The platform container runs as a non-root user (uid 10001) from its venv directly, applying migrations on start | Least privilege; the `uv` cache isn't writable for a system user |
@@ -106,6 +110,7 @@ Status values: `not started` · `in progress` · `blocked` · `done`
 
 | Date | Entry |
 |---|---|
+| 2026-10-22 | **Step 3 done.** Added `app/engine/versions.py` (PHP_VERSION split, a loose parser for WordPress, plugins and libraries incl. OpenSSL letters and pre-releases, a port of dpkg's version comparison, extraction for OpenSSL/Apache/nginx/LiteSpeed strings), `app/engine/catalogue.py` (key shapes, which kinds are OS-provided) and `app/engine/matcher.py` (vulnerable / needs_check / safe with plain-English reasons, fixed version per branch, unsupported-branch flag, distro rules). Added `fixtures/advisories/php2shell.json`. Tests: `uv run pytest`, 152 passed (139 new engine tests: PHP2Shell on every branch, Ubuntu/Debian with and without fix data, RHEL/CloudLinux, pre-release and unknown suffixes, broken advisory ranges, plugins, themes, OS-provided libraries, inactive components). Ruff is clean. |
 | 2026-10-22 | **Step 2 done.** Added the `platform/` Python 3.12 project (uv): settings (prod requires an HTTPS base URL and a 32+ char secret), DB layer (SQLite WAL, foreign keys on), all 20 tables from DESIGN §5.2, enums, security-headers middleware (strict CSP, no inline scripts, HSTS in prod), an overview page, and the Alembic initial migration. Tests: `uv run pytest`, 13 passed. They cover health, security headers, autoescape, prod settings, the no-contact-fields rule, enum and unique constraints, the UTC handling, and migrations matching the models (`alembic check`). Ruff is clean. Docker: `platform` service at 127.0.0.1:8000. Verified healthz and overview return 200 with the CSP header, the page renders, it's reachable from the WordPress container as `http://platform:8000`, and it runs as a non-root user. Note: PyPI is slow from this network (~13 s per request), so `uv sync` needs `UV_HTTP_TIMEOUT=120`. |
 | 2026-10-22 | **Step 1 done.** Set up git (`main`, remote `origin` = GitHub; nothing committed yet). Added `.gitignore`, README, `docker/compose.yaml`, `docker/wp-vuln/Dockerfile`, `docker/wp-setup.sh`, `docker/.env.example`. Local `docker/.env` has random secrets and is gitignored. Verified: homepage 200 with `X-Powered-By: PHP/8.3.30`; PHP 8.3.30 with no distro suffix; `session.upload_progress` on; ext-sodium present; `wp-cron.php` returns 200; Mailpit UI returns 200; ports bound to 127.0.0.1 only, and the LAN-IP request to :8081 was refused. Docker Desktop 4.96.2 at 4 CPUs / 4.3 GB. |
 | 2026-10-22 | Wrote DESIGN.md, AGENTS.md (with CLAUDE.md importing it) and PROGRESS.md from the design review. No code yet. The folder is not a git repo yet. |

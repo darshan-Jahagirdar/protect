@@ -233,6 +233,15 @@ Matching is deterministic, pure Python, and heavily table-tested. For each site 
 | RHEL family (RHEL, AlmaLinux, Rocky, CloudLinux) with no suffix | os-release `ID`/`ID_LIKE` | **needs_check**: fixes may be backported without a version change |
 | Branch past end of life with no official fix (for example PHP ≤ 8.1 for PHP2Shell) | Advisory has no fix for that branch | **vulnerable**, marked `unsupported_branch`. The fix is "upgrade the branch" (or confirm the host's backport, then mark it by hand) |
 
+**OS-provided components:** `php-ext:*`, `lib:*`, `db:*` and `server:*` are installed and patched by the OS or host, which often backports fixes without changing the version number. If one of these is inside an affected range, it is **needs_check**, never vulnerable or safe on its own. A version outside the range is **safe**.
+
+**Distro fix data** is stored in `advisory_affects.distro_fixes` as `{distro: {os_version_id: {package: value}}}`, for example `{"ubuntu": {"22.04": {"php8.1": "8.1.2-1ubuntu2.21"}}}`. The value is one of:
+- the first fixed package version, compared with dpkg's rules
+- `"not-affected"`
+- `"unfixed"`
+
+Missing data means **needs_check**. The implementation is in `platform/app/engine/` (`versions.py`, `matcher.py`, `catalogue.py`).
+
 The host type (managed WordPress, cPanel, VPS) changes **who fixes it and how** (the checklist template). It does not change whether the site is vulnerable.
 
 When an advisory's ranges change, or a site's inventory changes, matching re-runs for the affected pairs.

@@ -1,0 +1,35 @@
+{
+  "fixture": "php2shell",
+  "title": "PHP2Shell: unauthenticated remote code execution in PHP core",
+  "aliases": [
+    "CVE-2026-109618",
+    "CVE-2026-109619",
+    "GHSA-w8hw-w9fx-j79w",
+    "GHSA-6wmf-4rv5-p3rp"
+  ],
+  "source": "replay",
+  "source_url": "https://www.php.net/archive/2026.php#2026-10-21-5",
+  "published_at": "2026-10-21T14:00:00Z",
+  "cvss_score": 9.2,
+  "cvss_vector": null,
+  "network_unauthenticated": true,
+  "kev": false,
+  "exploited": true,
+  "drill": false,
+  "summary_text": "Two memory-safety flaws in how PHP handles out-of-memory errors during a request let a remote attacker without a login run code on the server. Application code does not matter. Every web SAPI is affected (mod_php, PHP-FPM, php-cgi, FrankenPHP, LiteSpeed). mod_php is the highest risk. The only complete fix is upgrading PHP. Edge WAF rules (for example Cloudflare's) cover known attack patterns only.",
+  "notes": "CVSS v4 vector not recorded here; network_unauthenticated is set from the advisory text. Exploitation attempts were reported by Amazon (Oct 17) and watchTowr (Oct 21); not in CISA KEV at last check. Fixed in 8.5.12, 8.4.27, 8.3.36 and 8.2.35. Branches 8.1 and older get no official release (minimal source backports only), so they're marked unsupported.",
+  "affects": [
+    {
+      "component_key": "php",
+      "ranges": [
+        {"introduced": "8.5.0", "fixed": "8.5.12"},
+        {"introduced": "8.4.0", "fixed": "8.4.27"},
+        {"introduced": "8.3.0", "fixed": "8.3.36"},
+        {"introduced": "8.2.0", "fixed": "8.2.35"},
+        {"introduced": "5.4.0", "limit": "8.2.0", "unsupported": true}
+      ],
+      "fixed_versions": ["8.5.12", "8.4.27", "8.3.36", "8.2.35"],
+      "distro_fixes": {}
+    }
+  ]
+}

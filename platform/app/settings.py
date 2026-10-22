@@ -23,6 +23,15 @@ class Settings(BaseSettings):
     base_url: str = "http://127.0.0.1:8000"
     secret_key: SecretStr | None = None
 
+    # Report API (DESIGN.md §4.2)
+    report_max_bytes: int = 256 * 1024
+    timestamp_skew_seconds: int = 600
+    nonce_ttl_seconds: int = 900
+    enrollment_code_ttl_hours: int = 24
+    reports_per_key_per_10min: int = 30
+    requests_per_ip_per_10min: int = 120
+    enrollments_per_ip_per_10min: int = 10
+
     @property
     def is_prod(self) -> bool:
         return self.env == "prod"

@@ -146,15 +146,19 @@ Data flows one way from the sites to the platform. Nothing on the platform can r
 | `X-Protect-Nonce` | 16 random bytes, hex |
 | `X-Protect-Signature` | base64 Ed25519 signature over `timestamp + "\n" + nonce + "\n" + sha256_hex(body)` |
 
-The platform checks each report in this order:
-1. The key id is known and active.
-2. The timestamp is within ±10 minutes.
-3. The nonce hasn't been seen in the last 15 minutes.
-4. The signature is valid.
-5. The body is at most 256 KB.
-6. The body matches the strict schema (pydantic, no extra fields).
-7. Field formats are valid: versions look like versions, slugs are `[a-z0-9-_]`, and paths are site-relative with no `..`.
-8. `php.sapi` is not `cli`.
+The platform checks each report in this order. Cheap, unauthenticated checks come first, then the signature, then the rest. A nonce is only recorded once the signature is valid, so nobody can burn a site's nonces.
+1. HTTPS (prod only) and the per-IP rate limit.
+2. The body is at most 256 KB, read in a stream and cut off past the limit.
+3. The signature headers are present and well-formed.
+4. The key id is known and the site is active.
+5. The timestamp is within ±10 minutes.
+6. The signature is valid.
+7. The per-key rate limit.
+8. The nonce hasn't been seen in the last 15 minutes.
+9. The body matches the strict schema (pydantic, no extra fields). Field formats are checked here too: versions look like versions, slugs are `[a-z0-9._-]`, paths are site-relative with no `..`, and there are no control characters.
+10. `php.sapi` is not `cli`.
+
+A success returns `204` with no body. The implementation is in `platform/app/api/` and `platform/app/services/`. Until the dashboard screens exist (step 8), sites are added with `python -m app.cli add-site`.
 
 What happens next depends on the result:
 

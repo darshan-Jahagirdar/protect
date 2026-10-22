@@ -1,0 +1,27 @@
+# Secrets: never commit. Copy the matching .env.example instead.
+.env
+*.env
+!*.env.example
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# Platform data
+*.sqlite
+*.sqlite3
+*.db
+*.db-wal
+*.db-shm
+platform/data/
+
+# Plugin release builds
+*.zip
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/

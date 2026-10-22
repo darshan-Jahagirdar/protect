@@ -1,0 +1,72 @@
+# Protect local demo environment.
+# Start:  docker compose -f docker/compose.yaml up -d --build
+# Every published port is bound to 127.0.0.1. The demo site runs vulnerable PHP on purpose,
+# so never change these to 0.0.0.0, and never add a tunnel.
+name: protect-demo
+
+services:
+  wp-db:
+    image: mariadb:11.4
+    environment:
+      MARIADB_DATABASE: wordpress
+      MARIADB_USER: wordpress
+      MARIADB_PASSWORD: ${WP_DB_PASSWORD:?set WP_DB_PASSWORD in docker/.env}
+      MARIADB_ROOT_PASSWORD: ${WP_DB_ROOT_PASSWORD:?set WP_DB_ROOT_PASSWORD in docker/.env}
+    volumes:
+      - wp-db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  wp-vuln:
+    build:
+      context: ./wp-vuln
+      args:
+        PHP_IMAGE: ${WP_PHP_IMAGE:-php:8.3.30-apache}
+    image: protect-demo/wp-vuln
+    ports:
+      - "127.0.0.1:8081:80"
+    volumes:
+      - wp-files:/var/www/html
+    depends_on:
+      wp-db:
+        condition: service_healthy
+
+  wp-setup:
+    image: wordpress:cli
+    user: "33:33"   # www-data in the Debian-based php image, so file ownership matches
+    environment:
+      WP_VERSION: ${WP_VERSION:-7.1.3}
+      WP_DB_PASSWORD: ${WP_DB_PASSWORD}
+      WP_ADMIN_USER: ${WP_ADMIN_USER:-demo-admin}
+      WP_ADMIN_PASSWORD: ${WP_ADMIN_PASSWORD:?set WP_ADMIN_PASSWORD in docker/.env}
+      WP_CLI_CACHE_DIR: /tmp/wp-cli-cache
+      HOME: /tmp
+    volumes:
+      - wp-files:/var/www/html
+      - ./wp-setup.sh:/wp-setup.sh:ro
+    entrypoint: ["sh", "/wp-setup.sh"]
+    depends_on:
+      wp-db:
+        condition: service_healthy
+      wp-vuln:
+        condition: service_started   # wp-vuln mounts the volume first, so it gets www-data (33) ownership
+    restart: "no"
+
+  wp-cron:
+    image: curlimages/curl:latest
+    # Calls wp-cron.php over HTTP every minute, so reports come from the web SAPI, never the CLI.
+    entrypoint: ["sh", "-c", "while true; do curl -fsS -o /dev/null http://wp-vuln/wp-cron.php || true; sleep 60; done"]
+    depends_on:
+      - wp-vuln
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "127.0.0.1:8025:8025"   # web UI to read caught alert emails; SMTP (1025) stays internal
+
+volumes:
+  wp-db-data:
+  wp-files:

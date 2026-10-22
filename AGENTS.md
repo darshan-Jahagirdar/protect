@@ -75,11 +75,13 @@ docker compose -f docker/compose.yaml up -d --build
 docker compose -f docker/compose.yaml ps
 docker compose -f docker/compose.yaml down   # add -v to wipe demo data
 
-# platform
-cd platform && uv sync
-cd platform && uv run pytest
-cd platform && uv run alembic upgrade head
-cd platform && uv run uvicorn app.main:app --reload --port 8000
+# platform (run from platform/)
+uv sync                                   # PyPI can be slow here: set UV_HTTP_TIMEOUT=120 if it stalls
+uv run pytest
+uv run ruff format app tests migrations && uv run ruff check app tests migrations
+uv run alembic upgrade head               # local DB: platform/data/protect.sqlite
+uv run alembic revision --autogenerate -m "what changed"   # after editing app/models.py
+uv run uvicorn app.main:app --reload --port 8000           # or use the `platform` compose service
 
 # plugin checks
 php -l plugin/protect-reporter/protect-reporter.php

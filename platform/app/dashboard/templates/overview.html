@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Overview · Protect{% endblock %}
+{% block content %}
+<h1>Overview</h1>
+<div class="tiles">
+  <section class="tile">
+    <div class="tile-value">{{ open_incidents }}</div>
+    <div class="tile-label">Open incidents</div>
+  </section>
+  <section class="tile">
+    <div class="tile-value">{{ active_sites }}</div>
+    <div class="tile-label">Active sites</div>
+  </section>
+</div>
+<p class="muted">Platform skeleton (step 2). Incidents, sites and alerts arrive in later steps.</p>
+{% endblock %}

@@ -19,7 +19,7 @@ Status values: `not started` · `in progress` · `blocked` · `done`
 |---|---|---|---|
 | 0 | Design docs (DESIGN, AGENTS, PROGRESS) | done | 2026-10-22 |
 | 1 | Repo scaffold + Docker demo env (`wp-vuln` on 127.0.0.1, `wp-db`, `wp-cron`, `mailpit`) | done | 2026-10-22: WordPress 7.1.3 on PHP 8.3.30 (mod_php), localhost only. Platform service gets added to compose in step 2 |
-| 2 | Platform skeleton: FastAPI app, settings, SQLAlchemy models, Alembic | not started | |
+| 2 | Platform skeleton: FastAPI app, settings, SQLAlchemy models, Alembic | done | 2026-10-22: 20 tables, first migration, 13 tests passing; `platform` service at 127.0.0.1:8000 |
 | 3 | Version engine + matcher with table-driven tests | not started | Distro suffixes, RHEL, unsupported branches |
 | 4 | Enrollment + signed Report API (validation, nonce, dedupe) | not started | |
 | 5 | Plugin: inventory, signing, hourly cron, Report now, transparency page | not started | PHP 7.4 compatible, no banned functions |
@@ -61,6 +61,9 @@ Status values: `not started` · `in progress` · `blocked` · `done`
 
 | Date | Decision | Why |
 |---|---|---|
+| 2026-10-22 | Enum columns are stored as strings with CHECK constraints. All datetimes go through `UTCDateTime`, which rejects naive values. Constraint names follow a fixed naming convention | Bad values can't slip into the DB; time zones stay unambiguous (the team is in IST, clients in the US); Alembic's SQLite batch migrations need stable names |
+| 2026-10-22 | `reports.schema` from DESIGN §5.2 is named `schema_version` in code | Avoids a confusing name clash with SQL "schema"; same meaning |
+| 2026-10-22 | The platform container runs as a non-root user (uid 10001) from its venv directly, applying migrations on start | Least privilege; the `uv` cache isn't writable for a system user |
 | 2026-10-22 | GitHub repo `darshan-Jahagirdar/protect` stays public (the user's choice) | No secrets are committed (`.env` is gitignored). Keep client names, site URLs and real hosting details out of the repo |
 | 2026-10-22 | The demo site is installed by a one-shot `wp-setup` container (WP-CLI, `wp core download` verifies the checksum). WP-Cron is disabled and the `wp-cron` container calls `wp-cron.php` over HTTP every minute | Matches the production rule that reports must come from the web SAPI |
 | 2026-10-22 | WordPress sites only in v1 | Unknown whether any non-WordPress sites exist; keeps scope tight |
@@ -103,6 +106,7 @@ Status values: `not started` · `in progress` · `blocked` · `done`
 
 | Date | Entry |
 |---|---|
+| 2026-10-22 | **Step 2 done.** Added the `platform/` Python 3.12 project (uv): settings (prod requires an HTTPS base URL and a 32+ char secret), DB layer (SQLite WAL, foreign keys on), all 20 tables from DESIGN §5.2, enums, security-headers middleware (strict CSP, no inline scripts, HSTS in prod), an overview page, and the Alembic initial migration. Tests: `uv run pytest`, 13 passed. They cover health, security headers, autoescape, prod settings, the no-contact-fields rule, enum and unique constraints, the UTC handling, and migrations matching the models (`alembic check`). Ruff is clean. Docker: `platform` service at 127.0.0.1:8000. Verified healthz and overview return 200 with the CSP header, the page renders, it's reachable from the WordPress container as `http://platform:8000`, and it runs as a non-root user. Note: PyPI is slow from this network (~13 s per request), so `uv sync` needs `UV_HTTP_TIMEOUT=120`. |
 | 2026-10-22 | **Step 1 done.** Set up git (`main`, remote `origin` = GitHub; nothing committed yet). Added `.gitignore`, README, `docker/compose.yaml`, `docker/wp-vuln/Dockerfile`, `docker/wp-setup.sh`, `docker/.env.example`. Local `docker/.env` has random secrets and is gitignored. Verified: homepage 200 with `X-Powered-By: PHP/8.3.30`; PHP 8.3.30 with no distro suffix; `session.upload_progress` on; ext-sodium present; `wp-cron.php` returns 200; Mailpit UI returns 200; ports bound to 127.0.0.1 only, and the LAN-IP request to :8081 was refused. Docker Desktop 4.96.2 at 4 CPUs / 4.3 GB. |
 | 2026-10-22 | Wrote DESIGN.md, AGENTS.md (with CLAUDE.md importing it) and PROGRESS.md from the design review. No code yet. The folder is not a git repo yet. |
 | 2026-10-22 | Reviewed the GTM, build plan and compliance docs against PHP2Shell research. Identified the gaps and decisions recorded above. |

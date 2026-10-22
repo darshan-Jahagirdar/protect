@@ -118,7 +118,7 @@ Data flows one way from the sites to the platform. Nothing on the platform can r
 | Slug | `protect-reporter` (working name; final name after the trademark check) |
 | Compatibility | PHP 7.4+ and WordPress 5.9+. It must run on the old sites we're trying to protect. Sites on older PHP can't run it, so they go into the inventory by hand and are already flagged as `unsupported_branch`. |
 | Dependencies | None. It uses only WordPress core and PHP core. Signing uses `sodium_*`: native ext-sodium, or the `sodium_compat` that ships with WordPress. |
-| Settings | Only the platform URL and a one-time enrollment code. Nothing else is configurable. |
+| Settings | Only the platform URL and a one-time enrollment code, on **Settings → Protect Reporter** (admin-only, nonce-checked, via `admin-post.php`). Nothing else is configurable. The URL must be `https://`; plain `http://` is accepted only when `wp_get_environment_type()` is `local` or `development`. |
 | Schedule | An hourly WP-Cron event. We recommend a real server cron that calls `wp-cron.php` **over HTTP** (many managed hosts already do this). |
 | On change | It also reports right after `upgrader_process_complete` (any core, plugin or theme update). On an admin page load it reports if `PHP_VERSION` differs from the last report. There is a "Report now" button in WP admin. |
 | Web SAPI only | It refuses to send if `php_sapi_name() === 'cli'`. A command-line PHP can be a different binary from the one serving the site. The platform also rejects CLI reports. |

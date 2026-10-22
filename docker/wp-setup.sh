@@ -33,4 +33,9 @@ if ! wp theme is-installed twentytwentyfive 2>/dev/null; then
   wp theme install twentytwentyfive --activate
 fi
 
+# Protect Reporter is mounted read-only from ../plugin/protect-reporter.
+if [ -d wp-content/plugins/protect-reporter ]; then
+  wp plugin is-active protect-reporter || wp plugin activate protect-reporter
+fi
+
 echo "wp-setup: done. WordPress $(wp core version) at http://127.0.0.1:8081"

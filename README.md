@@ -20,6 +20,22 @@ docker compose -f docker/compose.yaml up -d --build
 | Demo WordPress site | http://127.0.0.1:8081 (admin login: user and password from `docker/.env`) |
 | Caught alert emails (Mailpit) | http://127.0.0.1:8025 |
 
+| Protect platform | http://127.0.0.1:8000 |
+
+**Connect the demo site to Protect:**
+
+1. Get a code:
+
+   ```bash
+   docker compose -f docker/compose.yaml exec platform python -m app.cli new-code --site-id 1
+   ```
+
+   On a fresh database, use `add-site --name "Demo Co" --url http://127.0.0.1:8081 --host-type managed-wp` instead.
+2. In WordPress admin, open **Settings → Protect Reporter**.
+3. Set the platform URL to `http://platform:8000`, paste the code and click **Connect**.
+
+After that the site reports every hour, after any update, and whenever you click **Report now**.
+
 Stop it with `docker compose -f docker/compose.yaml down`. Add `-v` to also delete the demo data.
 
 This repository contains no exploit code. The demo proves detection and response, not exploitation.

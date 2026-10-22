@@ -83,8 +83,10 @@ uv run alembic upgrade head               # local DB: platform/data/protect.sqli
 uv run alembic revision --autogenerate -m "what changed"   # after editing app/models.py
 uv run uvicorn app.main:app --reload --port 8000           # or use the `platform` compose service
 
-# plugin checks
-php -l plugin/protect-reporter/protect-reporter.php
+# plugin checks (no local PHP needed; PHP 7.4 lint proves old-site compatibility)
+for img in php:7.4-cli php:8.3.30-apache; do docker run --rm -v "$PWD/plugin/protect-reporter:/p:ro" $img sh -c 'for f in $(find /p -name "*.php"); do php -l "$f" | grep -v "^No syntax errors"; done'; done
+cd platform && uv run pytest tests/test_plugin_rules.py          # static rule checks (banned calls, no inbound endpoints, ...)
+docker compose -f docker/compose.yaml run --rm --no-deps -T --entrypoint wp wp-setup --path=/var/www/html eval 'echo wp_json_encode( Protect_Reporter_Inventory::build() );'   # see a payload (CLI PHP, for inspection only)
 ```
 
 ## Testing expectations

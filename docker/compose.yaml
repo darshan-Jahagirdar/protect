@@ -30,6 +30,7 @@ services:
       - "127.0.0.1:8081:80"
     volumes:
       - wp-files:/var/www/html
+      - ../plugin/protect-reporter:/var/www/html/wp-content/plugins/protect-reporter:ro
     depends_on:
       wp-db:
         condition: service_healthy
@@ -46,6 +47,7 @@ services:
       HOME: /tmp
     volumes:
       - wp-files:/var/www/html
+      - ../plugin/protect-reporter:/var/www/html/wp-content/plugins/protect-reporter:ro
       - ./wp-setup.sh:/wp-setup.sh:ro
     entrypoint: ["sh", "/wp-setup.sh"]
     depends_on:

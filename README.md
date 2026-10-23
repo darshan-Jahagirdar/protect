@@ -19,8 +19,15 @@ docker compose -f docker/compose.yaml up -d --build
 |---|---|
 | Demo WordPress site | http://127.0.0.1:8081 (admin login: user and password from `docker/.env`) |
 | Caught alert emails (Mailpit) | http://127.0.0.1:8025 |
+| Protect dashboard | http://127.0.0.1:8000 |
 
-| Protect platform | http://127.0.0.1:8000 |
+**Sign in to the dashboard** (first time only, add yourself):
+
+```bash
+docker compose -f docker/compose.yaml exec platform python -m app.cli add-user --email you@example.com --name "Your Name" --role admin
+```
+
+Then open http://127.0.0.1:8000 and pick your name. The demo sign-in exists only locally; production will use Cloudflare Access.
 
 **Connect the demo site to Protect:**
 

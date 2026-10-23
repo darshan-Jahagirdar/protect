@@ -9,6 +9,7 @@
     uv run python -m app.cli send-alerts                     # the scheduler does this every 60s
     uv run python -m app.cli send-digest
     uv run python -m app.cli ack-incident <incident id>
+    uv run python -m app.cli add-user --email you@example.com --name "You" --role admin
 
 In the Docker demo:  docker compose -f docker/compose.yaml exec platform python -m app.cli ...
 """
@@ -20,8 +21,8 @@ from sqlalchemy import select
 
 from app.alerts.mailer import mailer_for
 from app.db import SessionLocal
-from app.enums import HostType
-from app.models import Incident, Site
+from app.enums import HostType, UserRole
+from app.models import Incident, Site, User
 from app.services.advisories import fixture_names, load_fixture, upsert_advisory
 from app.services.alerting import (
     acknowledge,
@@ -62,6 +63,11 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("send-digest", help="send the P3/P4 daily digest now")
     ack = sub.add_parser("ack-incident", help="acknowledge an incident (stops escalation)")
     ack.add_argument("incident_id")
+
+    user = sub.add_parser("add-user", help="add a team member (dashboard sign-in)")
+    user.add_argument("--email", required=True)
+    user.add_argument("--name", required=True)
+    user.add_argument("--role", choices=[r.value for r in UserRole], default="responder")
 
     args = parser.parse_args(argv)
     settings = get_settings()
@@ -115,6 +121,14 @@ def main(argv: list[str] | None = None) -> int:
             done = acknowledge(session, incident, user_id=None)
             session.commit()
             print("acknowledged" if done else "already acknowledged")
+        elif args.cmd == "add-user":
+            email = args.email.strip().lower()
+            if session.scalar(select(User).where(User.email == email)):
+                print(f"{email} already exists", file=sys.stderr)
+                return 1
+            session.add(User(email=email, display_name=args.name.strip(), role=UserRole(args.role)))
+            session.commit()
+            print(f"added {args.name} <{email}> as {args.role}")
     return 0
 
 

@@ -9,8 +9,24 @@
 <body>
   <header class="topbar">
     <a class="brand" href="/">Protect</a>
+    {% if viewer %}
+    <nav class="nav">
+      <a href="/">Overview</a>
+      <a href="/incidents">Incidents</a>
+      <a href="/sites">Sites</a>
+      <a href="/advisories">Advisories</a>
+      {% if viewer.user.role.value == "admin" %}<a href="/users">Team</a>{% endif %}
+    </nav>
+    <form class="whoami" method="post" action="/logout">
+      <input type="hidden" name="csrf_token" value="{{ viewer.csrf }}">
+      <span class="muted">{{ viewer.user.display_name }} · {{ viewer.user.role.value }}</span>
+      <button class="link-button" type="submit">Sign out</button>
+    </form>
+    {% endif %}
   </header>
   <main class="content">
+    {% if message %}<div class="flash">{{ message }}</div>{% endif %}
+    {% if error %}<div class="flash flash-error">{{ error }}</div>{% endif %}
     {% block content %}{% endblock %}
   </main>
 </body>

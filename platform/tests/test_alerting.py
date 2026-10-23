@@ -1,14 +1,12 @@
 from datetime import timedelta
 
 import pytest
-from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.alerts import mailer as mailer_mod
 from app.alerts.mailer import MemoryMailer, Message, SmtpMailer
-from app.db import Base, get_session, make_engine, utcnow
-from app.enums import Exposure, IncidentStatus, Priority
-from app.main import create_app
+from app.db import utcnow
+from app.enums import Exposure, IncidentStatus, Priority, UserRole
 from app.models import Alert, Event, Incident
 from app.services.alerting import (
     acknowledge,
@@ -17,6 +15,7 @@ from app.services.alerting import (
     send_due_alerts,
 )
 from app.settings import Settings
+from tests.dashboard_helpers import make_dash
 from tests.test_incidents import _replay, _site
 
 BASE = "https://protect.example"
@@ -207,60 +206,77 @@ def test_smtp_mailer_builds_a_plain_email(monkeypatch: pytest.MonkeyPatch) -> No
 # --- Incident page and the "I'm on it" button -------------------------------------------
 
 
-def _client(db_url: str, env: str = "test") -> TestClient:
-    engine = make_engine(db_url)
-    Base.metadata.create_all(engine)
-    extra = {"secret_key": "x" * 40, "base_url": BASE} if env == "prod" else {}
-    app = create_app(Settings(env=env, database_url=db_url, **extra))  # type: ignore[arg-type]
-
-    def _s():
-        with Session(engine) as s:
-            yield s
-
-    app.dependency_overrides[get_session] = _s
-    return TestClient(app)
-
-
-def test_incident_page_and_ack(db_url: str) -> None:
-    engine = make_engine(db_url)
-    Base.metadata.create_all(engine)
-    with Session(engine) as s:
+def _incident_in(dash) -> str:  # type: ignore[no-untyped-def]
+    with dash.session() as s:
         _site(s, "http://127.0.0.1:8081")
         incident = _replay(s, "php2shell")
         assert incident is not None
         s.commit()
-        incident_id = incident.id
+        return incident.id
 
-    c = _client(db_url)
-    page = c.get(f"/incidents/{incident_id}")
+
+def test_incident_page_and_ack(db_url: str) -> None:
+    dash = make_dash(db_url)
+    incident_id = _incident_in(dash)
+    user = dash.login(UserRole.RESPONDER, name="Priya Responder")
+    page = dash.client.get(f"/incidents/{incident_id}")
     assert page.status_code == 200
     assert "PHP 8.3.30 is affected; fixed in 8.3.36" in page.text
     assert "I&#39;m on it" in page.text or "I'm on it" in page.text
 
-    r = c.post(f"/incidents/{incident_id}/ack", follow_redirects=False)
+    r = dash.post(f"/incidents/{incident_id}/ack", page=f"/incidents/{incident_id}")
     assert r.status_code == 303
-    assert "Acknowledged" in c.get(f"/incidents/{incident_id}").text
-    assert c.get("/incidents/does-not-exist").status_code == 404
+    after = dash.client.get(f"/incidents/{incident_id}").text
+    assert "Acknowledged" in after
+    assert "Priya Responder" in after  # the timeline names who acknowledged
+    with dash.session() as s:
+        ev = s.query(Event).filter_by(type="acknowledged").one()
+        assert ev.actor_user_id == user.id
+    assert dash.client.get("/incidents/does-not-exist").status_code == 404
+
+
+def test_viewer_cannot_acknowledge(db_url: str) -> None:
+    dash = make_dash(db_url)
+    incident_id = _incident_in(dash)
+    dash.login(UserRole.VIEWER)
+    assert "I&#39;m on it" not in dash.client.get(f"/incidents/{incident_id}").text
+    r = dash.post(f"/incidents/{incident_id}/ack", page=f"/incidents/{incident_id}")
+    assert r.status_code == 403
 
 
 @pytest.mark.parametrize("origin", ["https://evil.example", "null"])
 def test_cross_site_ack_is_refused(db_url: str, origin: str) -> None:
-    c = _client(db_url)
-    r = c.post("/incidents/x/ack", headers={"origin": origin})
+    dash = make_dash(db_url)
+    incident_id = _incident_in(dash)
+    dash.login()
+    r = dash.post(f"/incidents/{incident_id}/ack", headers={"origin": origin})
     assert r.status_code == 403
 
 
-def test_same_origin_ack_is_allowed(db_url: str) -> None:
-    c = _client(db_url)
-    r = c.post("/incidents/x/ack", headers={"origin": "http://testserver"})
-    assert r.status_code == 404  # passed the origin check; the incident just doesn't exist
+def test_ack_without_csrf_token_is_refused(db_url: str) -> None:
+    dash = make_dash(db_url)
+    incident_id = _incident_in(dash)
+    dash.login()
+    r = dash.client.post(f"/incidents/{incident_id}/ack", follow_redirects=False)
+    assert r.status_code == 403
+    r = dash.client.post(
+        f"/incidents/{incident_id}/ack", data={"csrf_token": "wrong"}, follow_redirects=False
+    )
+    assert r.status_code == 403
 
 
 def test_referrer_policy_keeps_our_own_origin(db_url: str) -> None:
-    assert _client(db_url).get("/").headers["referrer-policy"] == "same-origin"
+    assert make_dash(db_url).client.get("/healthz").headers["referrer-policy"] == "same-origin"
 
 
-def test_incident_pages_are_hidden_in_prod_until_login_exists(db_url: str) -> None:
-    c = _client(db_url, env="prod")
-    assert c.get("/incidents/anything").status_code == 404
-    assert c.post("/incidents/anything/ack").status_code == 404
+def test_dashboard_needs_sign_in(db_url: str) -> None:
+    r = make_dash(db_url).client.get("/incidents/abc", follow_redirects=False)
+    assert r.status_code == 303
+    assert r.headers["location"] == "/login?next=/incidents/abc"
+
+
+def test_prod_has_no_dev_sign_in(db_url: str) -> None:
+    c = make_dash(db_url, env="prod").client
+    assert c.get("/login").status_code == 404
+    assert c.post("/login", data={"user_id": 1}).status_code == 404
+    assert c.get("/incidents/anything").status_code == 401

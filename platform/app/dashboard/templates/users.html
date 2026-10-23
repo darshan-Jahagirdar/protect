@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Team · Protect{% endblock %}
+{% block content %}
+<h1>Team</h1>
+<p class="muted">Our own team only. Client contacts are never stored in Protect.</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Name</th><th>Email</th><th>Role</th><th></th></tr></thead>
+  <tbody>
+  {% for u in users %}
+    <tr>
+      <td>{{ u.display_name }}</td>
+      <td>{{ u.email }}</td>
+      <td>{{ u.role.value }}{% if u.disabled_at %} · disabled{% endif %}</td>
+      <td>
+        {% if not u.disabled_at and u.id != viewer.user.id %}
+        <form method="post" action="/users/{{ u.id }}/disable" class="inline-form">
+          <input type="hidden" name="csrf_token" value="{{ viewer.csrf }}">
+          <button class="link-button" type="submit">Disable</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<h2>Add a team member</h2>
+<form method="post" action="/users" class="card form-grid">
+  <input type="hidden" name="csrf_token" value="{{ viewer.csrf }}">
+  <label>Name <input type="text" name="display_name" required maxlength="100"></label>
+  <label>Work email <input type="email" name="email" required maxlength="320"></label>
+  <label>Role
+    <select name="role">{% for r in roles %}<option value="{{ r.value }}">{{ r.value }}</option>{% endfor %}</select>
+  </label>
+  <button class="button-primary" type="submit">Add</button>
+</form>
+{% endblock %}

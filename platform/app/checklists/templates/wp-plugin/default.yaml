@@ -1,0 +1,23 @@
+title: "WordPress plugin flaw"
+items:
+  - key: update
+    kind: manual
+    text: "Update {component} to {fix_text} (WordPress admin → Plugins, or the host's update tools)."
+  - key: no_fix
+    kind: manual
+    text: "If there's no fixed version yet, deactivate and remove the plugin, or replace it, until there is."
+  - key: unused
+    kind: manual
+    text: "If the plugin isn't used, delete it: inactive plugins can still be attacked through their files."
+  - key: edge_rules
+    kind: manual
+    text: "Check whether the firewall (Cloudflare or the host's) has a rule for this flaw, and confirm it's on."
+  - key: report_shows_fix
+    kind: auto
+    text: "The site's next report shows {fix_text}, or the plugin removed."
+  - key: file_checks
+    kind: manual
+    text: "Review this site's file-check results for signs of tampering."
+  - key: client_notice
+    kind: manual
+    text: "Approve and send the client notice."

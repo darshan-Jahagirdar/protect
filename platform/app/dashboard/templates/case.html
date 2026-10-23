@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}{{ site.business_name }} · {{ case.component_key }} · Protect{% endblock %}
+{% block content %}
+{% set can_act = viewer.user.role.value != "viewer" %}
+<p><a href="/incidents/{{ incident.id }}">← {% if incident.drill %}[DRILL] {% endif %}{{ incident.title }}</a></p>
+<h1>{{ site.business_name }} <span class="muted">· {{ case.component_key }}</span></h1>
+<p class="muted"><a href="/sites/{{ site.id }}">{{ site.url }}</a> · {{ site.host_type.value }}{% if site.host_name %} ({{ site.host_name }}){% endif %}</p>
+
+<div class="tiles">
+  <section class="tile"><div class="tile-value">{{ case.exposure.value | replace("_", " ") }}</div><div class="tile-label">Status</div></section>
+  <section class="tile"><div class="tile-value">{{ case.version_seen or "?" }}</div><div class="tile-label">Version seen</div></section>
+  <section class="tile"><div class="tile-value">{% if case.unsupported_branch %}upgrade branch{% else %}{{ case.fixed_version or "none yet" }}{% endif %}</div><div class="tile-label">Fix</div></section>
+  <section class="tile"><div class="tile-value">{{ case.score }} <span class="badge badge-{{ case.priority.value | lower }}">{{ case.priority.value }}</span></div><div class="tile-label">Score</div></section>
+</div>
+
+<ul class="reasons-list">
+  {% for reason in case.match_reasons + case.score_reasons %}<li>{{ reason }}</li>{% endfor %}
+</ul>
+
+<h2 id="checklist">Checklist <span class="muted">· {{ template.title }}</span></h2>
+<ol class="checklist">
+  {% for row in checklist %}
+    <li class="{% if row.done %}done{% endif %}">
+      <div class="check-text">
+        <span class="check-mark">{% if row.done %}✓{% else %}○{% endif %}</span> {{ row.item.text }}
+        {% if row.item.kind == "auto" %}<span class="muted">(ticked automatically)</span>{% endif %}
+        {% if row.done and row.done_by and row.item.kind != "auto" %}<div class="muted small">{{ row.done_by }} · {{ row.done_at }}{% if row.note %} · {{ row.note }}{% endif %}</div>{% endif %}
+      </div>
+      {% if can_act and row.item.kind == "manual" %}
+      <form method="post" action="/cases/{{ case.id }}/checklist" class="inline-form">
+        <input type="hidden" name="csrf_token" value="{{ viewer.csrf }}">
+        <input type="hidden" name="item_key" value="{{ row.item.key }}">
+        {% if row.done %}
+          <input type="hidden" name="done" value="0">
+          <button class="link-button" type="submit">Undo</button>
+        {% else %}
+          <input type="hidden" name="done" value="1">
+          <input type="text" name="note" maxlength="1000" placeholder="Note (optional)">
+          <button class="button-secondary" type="submit">Done</button>
+        {% endif %}
+      </form>
+      {% endif %}
+    </li>
+  {% endfor %}
+</ol>
+
+{% if can_act %}
+<h2>Actions</h2>
+<div class="action-grid">
+  {% if case.exposure.value in ("vulnerable", "needs_check") %}
+  <form method="post" action="/cases/{{ case.id }}/action" class="card">
+    <input type="hidden" name="csrf_token" value="{{ viewer.csrf }}">
+    <input type="hidden" name="action" value="claim_fix">
+    <h3>We've fixed it</h3>
+    <p class="muted small">Protect then waits for the site's next report to confirm it.</p>
+    <input type="text" name="note" maxlength="1000" placeholder="What was done (optional)">
+    <button class="button-primary" type="submit">Mark fix claimed</button>
+  </form>
+  {% endif %}
+
+  <form method="post" action="/cases/{{ case.id }}/action" class="card">
+    <input type="hidden" name="csrf_token" value="{{ viewer.csrf }}">
+    {% if case.shielded %}
+      <input type="hidden" name="action" value="shield_off">
+      <h3>Shielded</h3>
+      <p class="small">{{ case.shield_note }}</p>
+      <button class="button-secondary" type="submit">Remove shield</button>
+    {% else %}
+      <input type="hidden" name="action" value="shield_on">
+      <h3>Firewall rule confirmed</h3>
+      <p class="muted small">Only after checking the rule is on. Lowers the score by 5; the site still needs the fix.</p>
+      <input type="text" name="note" maxlength="1000" required placeholder="Which rule, how you confirmed it">
+      <button class="button-secondary" type="submit">Mark shielded</button>
+    {% endif %}
+  </form>
+
+  {% if case.exposure.value in ("false_positive", "accepted_risk", "not_affected", "fix_claimed") %}
+  <form method="post" action="/cases/{{ case.id }}/action" class="card">
+    <input type="hidden" name="csrf_token" value="{{ viewer.csrf }}">
+    <input type="hidden" name="action" value="undo">
+    <h3>Undo "{{ case.exposure.value | replace("_", " ") }}"</h3>
+    <p class="muted small">Hands the case back to Protect, which re-checks the latest report.</p>
+    <button class="button-secondary" type="submit">Undo</button>
+  </form>
+  {% elif case.exposure.value != "verified" %}
+  <form method="post" action="/cases/{{ case.id }}/action" class="card">
+    <input type="hidden" name="csrf_token" value="{{ viewer.csrf }}">
+    <h3>Decision</h3>
+    <select name="action">
+      {% for d in decisions %}<option value="{{ d.value }}">{{ d.value | replace("_", " ") | capitalize }}</option>{% endfor %}
+    </select>
+    <input type="text" name="note" maxlength="1000" required placeholder="Why (required)">
+    <button class="button-secondary" type="submit">Record decision</button>
+  </form>
+  {% endif %}
+
+  <form method="post" action="/cases/{{ case.id }}/action" class="card">
+    <input type="hidden" name="csrf_token" value="{{ viewer.csrf }}">
+    <input type="hidden" name="action" value="compromise">
+    <h3>Signs of compromise</h3>
+    <select name="value">
+      {% for v in compromise_values %}<option value="{{ v.value }}" {% if v == case.compromise %}selected{% endif %}>{{ v.value }}</option>{% endfor %}
+    </select>
+    <input type="text" name="note" maxlength="1000" placeholder="What was found (required unless none)">
+    <button class="button-secondary" type="submit">Save</button>
+  </form>
+</div>
+{% endif %}
+
+<h2>Case timeline</h2>
+{% include "_timeline.html" %}
+{% endblock %}

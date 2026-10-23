@@ -1,0 +1,11 @@
+<ol class="timeline">
+  {% for e in events %}
+    <li>
+      <span class="muted">{{ e.at.strftime("%Y-%m-%d %H:%M:%S UTC") }}</span>
+      · {{ e.type | replace("_", " ") }}{% if e.note %}: {{ e.note }}{% endif %}
+      <span class="muted">· {{ users.get(e.actor_user_id, "system") if e.actor_user_id else "system" }}</span>
+    </li>
+  {% else %}
+    <li class="muted">Nothing yet.</li>
+  {% endfor %}
+</ol>

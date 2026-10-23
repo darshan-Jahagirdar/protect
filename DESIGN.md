@@ -414,9 +414,11 @@ Fix steps come from reviewed templates, never from AI. They live in `platform/ap
 - **Tech:** FastAPI, Jinja2 with **autoescape on**, and HTMX. No SPA.
 - **Access in production:** the dashboard sits behind **Cloudflare Access**, using Microsoft Entra ID (Microsoft 365) single sign-on, which enforces MFA. The app validates the `Cf-Access-Jwt-Assertion` token and maps emails to roles. Only `/api/v1/*` bypasses Access.
   - Fallback if Cloudflare Access isn't possible: app login with TOTP 2FA.
-- **Access in the demo:** a local dev login, enabled only when `PROTECT_ENV=dev`.
+- **Access in the demo:** a local dev login ("pick a team member"). It is enabled only outside prod; in prod `/login` returns 404 and unsigned requests get 401 until Cloudflare Access (P4) is in place. Team members are added with `python -m app.cli add-user` or on the Team page.
+- **Session:** an HMAC-signed cookie (user id, expiry, CSRF token), HttpOnly, `SameSite=Lax`, Secure in prod, lasting 12 hours. It is **Lax rather than Strict** so the link in an alert email opens the dashboard already signed in. Cross-site posts are still blocked by the CSRF token plus a same-site `Origin` check. Sign-in, sign-out, user changes, site changes and replays are written to `audit_log`.
+- **Pages built in step 8:** overview, incidents, incident, case (checklist, actions, timeline), sites (add site and get an enrollment code), site (inventory, settings, risk tags, rotate code), advisories (replay buttons), team. Manual advisory entry and the review queue come with live feeds (M2).
 - **Roles:** `admin` (users, settings), `responder` (acts on cases), `viewer` (read only).
-- **Browser hardening:** strict CSP (`default-src 'self'`; no inline scripts; HTMX served locally), CSRF tokens, `SameSite=Strict` cookies, and sessions that expire after 12 hours.
+- **Browser hardening:** strict CSP (`default-src 'self'`; no inline scripts), CSRF tokens, `SameSite=Lax` cookies (see above), and sessions that expire after 12 hours. The pages are plain HTML forms with no JavaScript at all so far; HTMX is added (served locally) only if a page needs it.
   - `Referrer-Policy: same-origin`: other sites never receive our URLs. `no-referrer` would make browsers send `Origin: null` on our own form posts, which breaks the origin check.
 - **Untrusted data:** everything from sites, advisories and the AI is shown as text. Nothing from them is ever passed through `|safe`.
 

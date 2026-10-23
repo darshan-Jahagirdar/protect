@@ -3,14 +3,22 @@
 {% block content %}
 <h1>Overview</h1>
 <div class="tiles">
-  <section class="tile">
-    <div class="tile-value">{{ open_incidents }}</div>
-    <div class="tile-label">Open incidents</div>
-  </section>
-  <section class="tile">
-    <div class="tile-value">{{ active_sites }}</div>
-    <div class="tile-label">Active sites</div>
-  </section>
+  <a class="tile" href="/incidents"><div class="tile-value">{{ rows | length }}</div><div class="tile-label">Open incidents</div></a>
+  <section class="tile {% if unacked_urgent %}tile-alert{% endif %}"><div class="tile-value">{{ unacked_urgent }}</div><div class="tile-label">P1/P2 not acknowledged</div></section>
+  <a class="tile" href="/sites"><div class="tile-value">{{ active_sites }}</div><div class="tile-label">Active sites</div></a>
+  <section class="tile {% if stale %}tile-warn{% endif %}"><div class="tile-value">{{ stale | length }}</div><div class="tile-label">Sites not reporting (3h+)</div></section>
+  <section class="tile {% if suspicious %}tile-warn{% endif %}"><div class="tile-value">{{ suspicious | length }}</div><div class="tile-label">Odd reports</div></section>
+  <a class="tile" href="/advisories"><div class="tile-value">{{ needs_review }}</div><div class="tile-label">Advisories to review</div></a>
 </div>
-<p class="muted">Platform skeleton (step 2). Incidents, sites and alerts arrive in later steps.</p>
+
+<h2>Open incidents</h2>
+{% include "_incident_rows.html" %}
+
+{% if stale or suspicious %}
+<h2>Sites needing attention</h2>
+<ul>
+  {% for s in stale %}<li><a href="/sites/{{ s.id }}">{{ s.business_name }}</a>: no report for over 3 hours</li>{% endfor %}
+  {% for s in suspicious %}<li><a href="/sites/{{ s.id }}">{{ s.business_name }}</a>: sent an odd report</li>{% endfor %}
+</ul>
+{% endif %}
 {% endblock %}

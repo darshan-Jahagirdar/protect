@@ -30,8 +30,8 @@ def test_healthz(client: TestClient) -> None:
 
 
 def test_security_headers_on_every_response(client: TestClient) -> None:
-    for path in ["/healthz", "/", "/does-not-exist"]:
-        h = client.get(path).headers
+    for path in ["/healthz", "/", "/login", "/does-not-exist"]:
+        h = client.get(path, follow_redirects=False).headers
         csp = h["content-security-policy"]
         assert "default-src 'self'" in csp
         assert "script-src 'self'" in csp
@@ -41,8 +41,12 @@ def test_security_headers_on_every_response(client: TestClient) -> None:
         assert "strict-transport-security" not in h  # HSTS only in prod
 
 
-def test_overview_page_renders(client: TestClient) -> None:
-    r = client.get("/")
+def test_overview_page_renders(db_url: str) -> None:
+    from tests.dashboard_helpers import make_dash
+
+    dash = make_dash(db_url)
+    dash.login()
+    r = dash.client.get("/")
     assert r.status_code == 200
     assert "Open incidents" in r.text
     assert "<script" not in r.text  # no inline scripts in our templates

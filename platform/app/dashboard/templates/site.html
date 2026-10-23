@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}{{ site.business_name }} · Protect{% endblock %}
+{% block content %}
+{% set is_admin = viewer.user.role.value == "admin" %}
+<p><a href="/sites">← Sites</a></p>
+<h1>{{ site.business_name }}</h1>
+<p class="muted">{{ site.url }} · {{ site.status.value }}{% if site.suspicious %} · <strong>odd report received</strong>{% endif %}</p>
+
+{% if new_code %}
+<div class="flash">
+  <strong>Enrollment code: <code class="code-big">{{ new_code }}</code></strong><br>
+  Shown once, valid {{ code_hours }} hours. In the site's WordPress admin: Settings → Protect Reporter → Connect.
+</div>
+{% endif %}
+
+<div class="tiles">
+  <section class="tile {% if stale %}tile-warn{% endif %}">
+    <div class="tile-value small-value">{% if site.last_report_at %}{{ site.last_report_at.strftime("%Y-%m-%d %H:%M UTC") }}{% else %}never{% endif %}</div>
+    <div class="tile-label">Last report{% if stale and site.status.value == "active" %} (stale){% endif %}</div>
+  </section>
+  <section class="tile"><div class="tile-value">{{ components | length }}</div><div class="tile-label">Components</div></section>
+  <section class="tile"><div class="tile-value small-value"><code>{{ site.key_id or "not enrolled" }}</code></div><div class="tile-label">Key ID</div></section>
+</div>
+
+{% if report and report.flags %}
+<div class="flash flash-error">The last report was flagged: {{ report.flags | join(", ") }}</div>
+{% endif %}
+
+<h2>Cases</h2>
+<ul>
+  {% for c in cases %}
+    <li><a href="/cases/{{ c.id }}">{% if c.incident.drill %}[DRILL] {% endif %}{{ c.incident.title }}</a> · {{ c.component_key }} · {{ c.exposure.value | replace("_", " ") }}</li>
+  {% else %}
+    <li class="muted">No cases.</li>
+  {% endfor %}
+</ul>
+
+{% if is_admin %}
+<h2>Settings</h2>
+<form method="post" action="/sites/{{ site.id }}/settings" class="card form-grid">
+  <input type="hidden" name="csrf_token" value="{{ viewer.csrf }}">
+  <label>Hosting
+    <select name="host_type">{% for h in host_types %}<option value="{{ h.value }}" {% if h == site.host_type %}selected{% endif %}>{{ h.value }}</option>{% endfor %}</select>
+  </label>
+  <label>Host name <input type="text" name="host_name" maxlength="100" value="{{ site.host_name or '' }}" placeholder="e.g. WP Engine"></label>
+  <label>Server group <input type="text" name="server_group" maxlength="100" value="{{ site.server_group or '' }}"></label>
+  <fieldset>
+    <legend>Risk</legend>
+    {% for t in risk_tags %}<label class="check"><input type="checkbox" name="risk_{{ t }}" {% if t in site.risk_tags %}checked{% endif %}> {{ t | replace("_", " ") }}</label>{% endfor %}
+  </fieldset>
+  <button class="button-secondary" type="submit">Save</button>
+</form>
+
+<form method="post" action="/sites/{{ site.id }}/code" class="inline-form">
+  <input type="hidden" name="csrf_token" value="{{ viewer.csrf }}">
+  <button class="button-secondary" type="submit">{% if site.key_id %}Issue a new enrollment code (rotate key){% else %}Issue an enrollment code{% endif %}</button>
+</form>
+{% endif %}
+
+<h2>Inventory</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Component</th><th>Version</th><th>Active</th><th>Last seen</th></tr></thead>
+  <tbody>
+  {% for c in components %}
+    <tr>
+      <td><code>{{ c.component_key }}</code>{% if c.distro %} <span class="muted">({{ c.distro }})</span>{% endif %}</td>
+      <td>{{ c.version_raw or "?" }}</td>
+      <td>{{ "yes" if c.active else "no" }}</td>
+      <td class="muted">{{ c.last_seen.strftime("%Y-%m-%d %H:%M UTC") }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="4" class="muted">No report received yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

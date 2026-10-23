@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Sign in · Protect{% endblock %}
+{% block content %}
+<h1>Sign in</h1>
+<p class="muted">Local demo sign-in: pick a team member. Production uses Cloudflare Access with your Microsoft account.</p>
+{% if users %}
+  <div class="stack">
+  {% for user in users %}
+    <form method="post" action="/login">
+      <input type="hidden" name="user_id" value="{{ user.id }}">
+      <input type="hidden" name="next" value="{{ next }}">
+      <button class="button-secondary wide" type="submit">{{ user.display_name }} <span class="muted">· {{ user.role.value }}</span></button>
+    </form>
+  {% endfor %}
+  </div>
+{% else %}
+  <p>No team members yet. Add one:</p>
+  <pre>docker compose -f docker/compose.yaml exec platform python -m app.cli add-user --email you@example.com --name "Your Name" --role admin</pre>
+{% endif %}
+{% endblock %}

@@ -8,12 +8,15 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.parse import quote
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import Limiters
 from app.api.routes import router as api_router
+from app.dashboard.auth import NotSignedIn
 from app.dashboard.routes import router as dashboard_router
 from app.security import SecurityHeadersMiddleware
 from app.settings import Settings, get_settings
@@ -57,6 +60,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.limiters = Limiters.from_settings(settings)
     app.add_middleware(SecurityHeadersMiddleware, hsts=settings.is_prod)
     app.mount("/static", StaticFiles(directory=APP_DIR / "dashboard" / "static"), name="static")
+
+    @app.exception_handler(NotSignedIn)
+    async def _not_signed_in(request: Request, exc: NotSignedIn) -> Response:
+        if settings.is_prod:  # prod sign-in is Cloudflare Access (P4); nothing to redirect to yet
+            return Response(status_code=401)
+        target = "/login" + (f"?next={quote(exc.next_path)}" if exc.next_path != "/" else "")
+        return RedirectResponse(target, status_code=303)
 
     @app.get("/healthz", include_in_schema=False)
     def healthz() -> dict[str, str]:

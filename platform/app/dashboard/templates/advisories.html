@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Advisories · Protect{% endblock %}
+{% block content %}
+<h1>Advisories</h1>
+
+{% if viewer.user.role.value != "viewer" %}
+<h2>Replay an advisory</h2>
+<p class="muted">Loads a saved advisory and matches it against every active site now. Drills are always marked [DRILL].</p>
+<div class="stack-row">
+  {% for name in fixtures %}
+  <form method="post" action="/advisories/replay" class="inline-form">
+    <input type="hidden" name="csrf_token" value="{{ viewer.csrf }}">
+    <input type="hidden" name="name" value="{{ name }}">
+    <button class="button-secondary" type="submit">Replay {{ name }}</button>
+  </form>
+  {% endfor %}
+</div>
+{% endif %}
+
+<h2>Known advisories</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Advisory</th><th>Ids</th><th>CVSS</th><th>Exploited</th><th>Review</th><th>Source</th></tr></thead>
+  <tbody>
+  {% for a in advisories %}
+    <tr>
+      <td>{% if a.drill %}<span class="badge badge-drill">DRILL</span> {% endif %}{{ a.title }}</td>
+      <td class="small">{{ a.aliases | join(", ") }}</td>
+      <td>{{ a.cvss_score if a.cvss_score is not none else "?" }}</td>
+      <td>{% if a.kev %}CISA KEV{% elif a.exploited %}reported{% else %}no{% endif %}</td>
+      <td>{{ a.review_status.value | replace("_", " ") }}</td>
+      <td>{% if a.source_url %}<a href="{{ a.source_url }}" rel="noopener noreferrer" target="_blank">{{ a.source }}</a>{% else %}{{ a.source }}{% endif %}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="6" class="muted">No advisories yet. Live feeds arrive in milestone 2.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

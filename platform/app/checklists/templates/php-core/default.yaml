@@ -1,0 +1,20 @@
+title: "PHP core flaw (hosting type not recorded yet)"
+items:
+  - key: who_patches
+    kind: manual
+    text: "Find out who manages PHP for this site (the host or our team) and record the host type on the site page."
+  - key: php_upgrade
+    kind: manual
+    text: "Get PHP moved to {fix_text}, through the host or on the server."
+  - key: edge_rules
+    kind: manual
+    text: "Confirm edge protection is on: Cloudflare managed WAF rules (if the site is behind Cloudflare) or the host's firewall. Not 'Under Attack' mode."
+  - key: report_shows_fix
+    kind: auto
+    text: "The site's next report shows {fix_text}. Press 'Report now' in the plugin to speed this up."
+  - key: file_checks
+    kind: manual
+    text: "Review this site's file-check results for signs of tampering."
+  - key: client_notice
+    kind: manual
+    text: "Approve and send the client notice."

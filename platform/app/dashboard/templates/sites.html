@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Sites · Protect{% endblock %}
+{% block content %}
+<h1>Sites</h1>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Site</th><th>Host</th><th>Status</th><th>Last report</th><th>Open cases</th></tr></thead>
+  <tbody>
+  {% for s in sites %}
+    <tr>
+      <td><a href="/sites/{{ s.id }}">{{ s.business_name }}</a><br><span class="muted">{{ s.url }}</span></td>
+      <td>{{ s.host_type.value }}{% if s.host_name %}<br><span class="muted">{{ s.host_name }}</span>{% endif %}</td>
+      <td>{{ s.status.value }}{% if s.suspicious %} · <strong>odd report</strong>{% endif %}</td>
+      <td>{% if s.last_report_at %}{{ s.last_report_at.strftime("%Y-%m-%d %H:%M UTC") }}{% else %}never{% endif %}{% if s.status.value == "active" and s.id in stale %} · <strong>stale</strong>{% endif %}</td>
+      <td>{{ open_cases.get(s.id, 0) }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="5" class="muted">No sites yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+{% if viewer.user.role.value == "admin" %}
+<h2>Add a site</h2>
+<form method="post" action="/sites" class="card form-grid">
+  <input type="hidden" name="csrf_token" value="{{ viewer.csrf }}">
+  <label>Business name <input type="text" name="business_name" required maxlength="200"></label>
+  <label>Site URL <input type="url" name="url" required maxlength="500" placeholder="https://example.com"></label>
+  <label>Hosting
+    <select name="host_type">{% for h in host_types %}<option value="{{ h.value }}">{{ h.value }}</option>{% endfor %}</select>
+  </label>
+  <button class="button-primary" type="submit">Add site and get enrollment code</button>
+</form>
+{% endif %}
+{% endblock %}

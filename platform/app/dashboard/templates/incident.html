@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{% if incident.drill %}[DRILL] {% endif %}{{ incident.title }} · Protect{% endblock %}
 {% block content %}
-<p><a href="/">← Overview</a></p>
+<p><a href="/incidents">← Incidents</a></p>
 <h1>
   {% if incident.drill %}<span class="badge badge-drill">DRILL</span>{% endif %}
   <span class="badge badge-{{ incident.priority.value | lower }}">{{ incident.priority.value }}</span>
@@ -18,11 +18,14 @@
   <section class="tile">
     {% if acknowledged %}
       <div class="tile-value ok">✓</div><div class="tile-label">Acknowledged</div>
-    {% else %}
+    {% elif viewer.user.role.value != "viewer" %}
       <form method="post" action="/incidents/{{ incident.id }}/ack">
+        <input type="hidden" name="csrf_token" value="{{ viewer.csrf }}">
         <button class="button-primary" type="submit">I'm on it</button>
       </form>
       <div class="tile-label">Not yet acknowledged</div>
+    {% else %}
+      <div class="tile-value">–</div><div class="tile-label">Not yet acknowledged</div>
     {% endif %}
   </section>
 </div>
@@ -34,10 +37,10 @@
   <tbody>
   {% for case in cases %}
     <tr>
-      <td>{{ case.site.business_name }}<br><span class="muted">{{ case.site.url }}</span></td>
+      <td><a href="/cases/{{ case.id }}">{{ case.site.business_name }}</a><br><span class="muted">{{ case.site.url }}</span></td>
       <td><code>{{ case.component_key }}</code></td>
       <td>{{ case.version_seen or "?" }}</td>
-      <td>{{ case.exposure.value | replace("_", " ") }}</td>
+      <td>{{ case.exposure.value | replace("_", " ") }}{% if case.shielded %} · shielded{% endif %}{% if case.compromise.value != "none" %} · <strong>compromise {{ case.compromise.value }}</strong>{% endif %}</td>
       <td>{% if case.unsupported_branch %}upgrade branch{% else %}{{ case.fixed_version or "none yet" }}{% endif %}</td>
       <td>{{ case.score }} ({{ case.priority.value }})</td>
     </tr>
@@ -56,9 +59,5 @@
 </div>
 
 <h2>Timeline</h2>
-<ol class="timeline">
-  {% for e in events %}
-    <li><span class="muted">{{ e.at.strftime("%Y-%m-%d %H:%M:%S UTC") }}</span> · {{ e.type | replace("_", " ") }}{% if e.note %}: {{ e.note }}{% endif %}</li>
-  {% endfor %}
-</ol>
+{% include "_timeline.html" %}
 {% endblock %}

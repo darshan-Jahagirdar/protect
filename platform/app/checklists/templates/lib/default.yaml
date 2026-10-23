@@ -1,0 +1,14 @@
+title: "Flaw in software provided by the server or host"
+items:
+  - key: confirm_with_host
+    kind: manual
+    text: "Ask {host} whether {component} on this server has the fix for {advisory_ids} (fixes are often backported without changing the version). Note the answer here."
+  - key: os_updates
+    kind: manual
+    text: "On servers we manage, install the OS security updates and restart the affected service."
+  - key: report_shows_fix
+    kind: auto
+    text: "The site's next report shows {fix_text}, or the host has confirmed the fix."
+  - key: client_notice
+    kind: manual
+    text: "Approve and send the client notice, if one is needed."

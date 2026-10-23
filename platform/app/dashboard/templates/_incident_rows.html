@@ -1,0 +1,18 @@
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Priority</th><th>Incident</th><th>Sites</th><th>Status</th><th>Opened</th></tr></thead>
+  <tbody>
+  {% for incident, summary, acked in rows %}
+    <tr>
+      <td><span class="badge badge-{{ incident.priority.value | lower }}">{{ incident.priority.value }}</span></td>
+      <td>{% if incident.drill %}<span class="badge badge-drill">DRILL</span> {% endif %}<a href="/incidents/{{ incident.id }}">{{ incident.title }}</a></td>
+      <td>{{ summary.affected }}{% if summary.needs_check %} <span class="muted">({{ summary.needs_check }} to check)</span>{% endif %}</td>
+      <td>{{ incident.status.value }}{% if incident.status.value != "closed" %} · {% if acked %}acknowledged{% else %}<strong>not acknowledged</strong>{% endif %}{% endif %}</td>
+      <td class="muted">{{ incident.created_at.strftime("%Y-%m-%d %H:%M UTC") }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="5" class="muted">No open incidents.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>

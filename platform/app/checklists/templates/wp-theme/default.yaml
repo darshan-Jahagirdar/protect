@@ -1,0 +1,17 @@
+title: "WordPress theme flaw"
+items:
+  - key: update
+    kind: manual
+    text: "Update {component} to {fix_text}. Check child-theme compatibility first on staging if the site has one."
+  - key: unused
+    kind: manual
+    text: "If the theme isn't the active theme or its parent, delete it."
+  - key: report_shows_fix
+    kind: auto
+    text: "The site's next report shows {fix_text}, or the theme removed."
+  - key: file_checks
+    kind: manual
+    text: "Review this site's file-check results for signs of tampering."
+  - key: client_notice
+    kind: manual
+    text: "Approve and send the client notice."

@@ -87,6 +87,8 @@ uv run uvicorn app.main:app --reload --port 8000           # or use the `platfor
 python -m app.cli add-site | new-code | list-sites
 python -m app.cli replay-advisory php2shell|drill-plugin    # match now; alerts go out on the next scheduler run
 python -m app.cli list-incidents | send-alerts | send-digest | ack-incident <id>
+python -m app.cli add-user --email you@example.com --name "You" --role admin   # dashboard sign-in
+# dashboard: http://127.0.0.1:8000 (dev sign-in: pick a team member)
 # demo alert emails: http://127.0.0.1:8025 (Mailpit)
 
 # plugin checks (no local PHP needed; PHP 7.4 lint proves old-site compatibility)

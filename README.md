@@ -5,6 +5,7 @@ TransFunnel's internal tool for spotting and handling security flaws on the Word
 - [DESIGN.md](DESIGN.md): what we're building and why
 - [AGENTS.md](AGENTS.md): rules for anyone (or any AI agent) changing the code
 - [PROGRESS.md](PROGRESS.md): status, decisions and work log
+- [HANDOFF.md](HANDOFF.md): where things stand and what's next (start here in a new session)
 
 ## Local demo
 

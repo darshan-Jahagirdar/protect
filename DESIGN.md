@@ -1,6 +1,6 @@
 # TransFunnel Protect — Design
 
-Status: v1 design, agreed 2026-10-22. Owner: Darshan B Jahagirdar (sole builder and maintainer).
+Status: v1 design, agreed 2026-10-22; updated 2026-10-23 to match the code as built (milestone 1 steps 1–12). Owner: Darshan B Jahagirdar (sole builder and maintainer).
 Related docs (Claude Docs): [GTM](https://claude.ai/artifact/CqXX1YdKiuXtyU1PQ83UuM) · [Build plan](https://claude.ai/artifact/M3mtBXQqBcez9xheFecvae) · [Data and compliance](https://claude.ai/artifact/S2wkNVaAxjNRD7bPVi3rgF).
 Progress and decisions are logged in [PROGRESS.md](PROGRESS.md). Rules for coding agents are in [AGENTS.md](AGENTS.md).
 
@@ -443,7 +443,7 @@ Fix steps come from reviewed templates, never from AI. They live in `platform/ap
   - Case: checklist, status buttons, file checks, drafts
   - Advisories: including the review queue, replay and manual entry
   - Settings: users, alert recipients, mu-plugin allowlists
-- **Tech:** FastAPI, Jinja2 with **autoescape on**, and HTMX. No SPA.
+- **Tech:** FastAPI and Jinja2 with **autoescape on**; plain HTML forms with no JavaScript. No SPA.
 - **Access in production:** the dashboard sits behind **Cloudflare Access**, using Microsoft Entra ID (Microsoft 365) single sign-on, which enforces MFA. The app validates the `Cf-Access-Jwt-Assertion` token and maps emails to roles. Only `/api/v1/*` bypasses Access.
   - Fallback if Cloudflare Access isn't possible: app login with TOTP 2FA.
 - **Access in the demo:** a local dev login ("pick a team member"). It is enabled only outside prod; in prod `/login` returns 404 and unsigned requests get 401 until Cloudflare Access (P4) is in place. Team members are added with `python -m app.cli add-user` or on the Team page.
@@ -549,9 +549,9 @@ The production database is SQLite (WAL mode), accessed through SQLAlchemy 2 with
 | `cases` | id, incident_id, site_id, component_key, exposure, version_seen, fixed_version, unsupported_branch, match_reasons (json), shielded, shield_note, compromise, client_notice, priority, score, score_reasons (json), owner_user_id, created_at, updated_at |
 | `checklist_items` | case_id, template_key, item_key, kind (`manual`/`auto`), done_by, done_at, note |
 | `events` | id, incident_id, case_id, actor_user_id (null = system), type, at, note, data (json) |
-| `ai_results` | id, incident_id, case_id, task, provider, model, prompt_version, content, created_at |
+| `ai_results` | id, incident_id, case_id, task, provider, model, prompt_version, input_hash, content, created_at |
 | `drafts` | id, incident_id, case_id, content, ai_result_id, approved_by, approved_at, sent_marked_by, sent_at |
-| `alerts` | id, incident_id, channel, recipients_group, sent_at, acked_by, acked_at, escalated_at |
+| `alerts` | id, incident_id, channel, kind (new/update/escalation), priority, sites_count, recipients_group, sent_at, acked_by, acked_at, escalated_at |
 | `feed_runs` | id, source, started_at, finished_at, status, items_new, error |
 | `users` | id, email, display_name, role, totp_secret_enc (fallback only), created_at, disabled_at (our team only) |
 | `audit_log` | id, at, actor_user_id, action, target, data (json) (logins, user and setting changes) |
@@ -583,7 +583,7 @@ The goal: a full breach of Protect exposes a list of sites and their versions, a
 | Theft of the platform database | It holds only public keys (no shared secrets); disk encryption; the dashboard is behind Access; minimal data |
 | A compromised platform server tries to attack client sites | There is no path: the plugin accepts no input and ignores reply bodies (R1, R2) |
 | A compromised platform server sends fake alerts or drafts | Humans approve every draft and verify fixes; no automatic actions in v1 |
-| Stolen dashboard session | Cloudflare Access with Entra MFA, short sessions, CSRF tokens, `SameSite=Strict` |
+| Stolen dashboard session | Cloudflare Access with Entra MFA, 12-hour signed sessions, CSRF tokens + same-site Origin check, `SameSite=Lax` |
 | Alert email read by a third party | Alerts carry counts only |
 | Prompt injection in advisory text | AI never decides status; output is escaped; a human approves |
 | Flooding the report API | Cloudflare in front, rate limits, a 256 KB body cap |
@@ -617,6 +617,7 @@ No new legal documents are needed. These existing docs need updating:
 |---|---|---|
 | `wp-vuln` | WordPress on `php:8.3.30-apache` (mod_php, older than the 8.3.36 fix). Custom Dockerfile; confirm the tag exists at build time | `127.0.0.1:8081` **only** |
 | `wp-db` | MariaDB | internal network |
+| `wp-setup` | One-shot WP-CLI container: installs WordPress, the theme and Hello Dolly (inactive, for the drill), and activates Protect Reporter (mounted read-only from `plugin/`) | none |
 | `wp-cron` | Small curl loop that calls `http://wp-vuln/wp-cron.php` every minute (cron over HTTP, as in production) | internal |
 | `platform` | Protect platform (`PROTECT_ENV=dev`) | `127.0.0.1:8000` |
 | `mailpit` | Catches alert emails | `127.0.0.1:8025` |
@@ -643,39 +644,38 @@ A real, empty WordPress site (nothing for sale) on **fully patched** PHP, hosted
 
 ```
 Protect/
-├── AGENTS.md            rules for coding agents (CLAUDE.md imports it)
-├── CLAUDE.md
-├── DESIGN.md            this file
-├── PROGRESS.md          status board, decision log, work log
+├── AGENTS.md  CLAUDE.md (imports AGENTS.md)  DESIGN.md  PROGRESS.md  HANDOFF.md  README.md
 ├── docker/
-│   ├── compose.yaml
-│   ├── wp-vuln/Dockerfile
-│   └── wp-cron/
-├── plugin/
-│   └── protect-reporter/
-│       ├── protect-reporter.php
-│       ├── includes/    (inventory, checks, signer, sender)
-│       ├── admin/       (settings, transparency page)
-│       └── uninstall.php
+│   ├── compose.yaml        wp-db, wp-vuln (127.0.0.1:8081), wp-setup (one-shot WP-CLI),
+│   │                       wp-cron (curl loop), platform (127.0.0.1:8000), mailpit (127.0.0.1:8025)
+│   ├── wp-vuln/Dockerfile  WordPress on a PHP image chosen by WP_PHP_IMAGE
+│   ├── wp-setup.sh         installs WordPress, theme, Hello Dolly (drill), activates the plugin
+│   └── .env.example        demo secrets template (docker/.env is gitignored)
+├── plugin/protect-reporter/
+│   ├── protect-reporter.php
+│   ├── includes/           inventory, checks (file scanner), signer, sender, scheduler
+│   ├── admin/              settings page: connect, Report now, "exactly what was last sent"
+│   └── uninstall.php
 └── platform/
-    ├── pyproject.toml   (uv)
+    ├── pyproject.toml, uv.lock, alembic.ini, Dockerfile, .env.example
     ├── app/
-    │   ├── main.py
-    │   ├── api/         (enroll, report)
-    │   ├── dashboard/   (routes, templates, static)
-    │   ├── engine/      (versions.py, matcher.py, scoring.py, catalogue.py)
-    │   ├── feeds/
-    │   ├── alerts/
-    │   ├── observer/
-    │   ├── ai/
-    │   ├── checklists/templates/
-    │   ├── models.py, db.py, settings.py, security.py
-    ├── migrations/
-    ├── fixtures/advisories/   (php2shell.json, drill-plugin.json)
-    └── tests/
+    │   ├── main.py  cli.py  scheduler.py  settings.py  db.py  models.py  enums.py  security.py
+    │   ├── api/            routes (enroll, report), schemas, signing, ratelimit
+    │   ├── engine/         versions, matcher, scoring, catalogue (pure, deterministic)
+    │   ├── services/       enrollment, inventory, advisories, incidents, cases, alerting,
+    │   │                   findings, observations
+    │   ├── alerts/         mailer (smtp/console/memory; graph in M2), messages (counts only)
+    │   ├── observer/       observe (one GET /, headers only)
+    │   ├── ai/             inputs (allowlist), prompts, providers, service
+    │   ├── checklists/     loader + templates/<kind>/<host_type>.yaml
+    │   ├── dashboard/      auth, routes, templates/, static/style.css
+    │   └── feeds/          empty: live advisory feeds arrive in M2 (P1)
+    ├── migrations/versions/
+    ├── fixtures/advisories/   php2shell.json, drill-plugin.json
+    └── tests/              engine/, api/, and one file per feature
 ```
 
-**Platform stack:** Python 3.12, FastAPI, Jinja2, HTMX, SQLAlchemy 2 + Alembic, pydantic v2, APScheduler, httpx, PyNaCl (Ed25519), google-genai (behind `ai/`), and pytest.
+**Platform stack:** Python 3.12 (uv), FastAPI, Jinja2, SQLAlchemy 2 + Alembic, pydantic v2 + pydantic-settings, APScheduler, httpx (also used for the AI providers' REST APIs; no vendor SDKs), PyNaCl (Ed25519), PyYAML (checklists), python-multipart (forms), pytest and ruff.
 
 ---
 

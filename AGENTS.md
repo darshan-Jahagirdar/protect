@@ -1,6 +1,6 @@
 # AGENTS.md — rules for coding agents working on Protect
 
-Read this before changing anything. [DESIGN.md](DESIGN.md) is the source of truth for *what* we build. This file covers *how* to work on it. [PROGRESS.md](PROGRESS.md) is where you log what you did.
+Read this before changing anything. In a new session, read [HANDOFF.md](HANDOFF.md) first for the current state. [DESIGN.md](DESIGN.md) is the source of truth for *what* we build. This file covers *how* to work on it. [PROGRESS.md](PROGRESS.md) is where you log what you did.
 
 ## What this project is
 
@@ -58,7 +58,8 @@ If a change would break any of these, **stop and ask the user**. Don't look for 
 
 ## Platform coding rules (`platform/`)
 
-- **Stack:** Python 3.12, managed with **uv**. FastAPI, Jinja2, HTMX (served locally, no CDN), SQLAlchemy 2, Alembic, pydantic v2, APScheduler, httpx, PyNaCl.
+- **Stack:** Python 3.12, managed with **uv**. FastAPI, Jinja2, SQLAlchemy 2, Alembic, pydantic v2, APScheduler, httpx, PyNaCl, PyYAML, python-multipart. Pages are plain HTML forms with no JavaScript; if a page ever needs HTMX, serve it locally (no CDN) and keep the CSP strict.
+- **AI providers** are called over plain REST with httpx from `app/ai/providers.py` only. No vendor SDKs.
 - **Style:** type hints everywhere, small modules, and no framework magic you'd have to explain.
 - **Migrations:** every schema change is an Alembic migration.
 - **Checklists** are YAML templates in `app/checklists/templates/`, reviewed by a person. Never generate checklist steps with AI.

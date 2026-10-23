@@ -1,10 +1,12 @@
 """Protect platform entry point.
 
-Run with exactly ONE worker: the scheduler (added later) runs in-process, and more workers
-would run every job more than once.
+Run with exactly ONE worker: the scheduler runs in-process, and more workers would run
+every job more than once.
 """
 
 import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -31,8 +33,21 @@ def _configure_logging() -> None:
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
     _configure_logging()
+
+    @asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        scheduler = None
+        if settings.scheduler_enabled and settings.env != "test":
+            from app.scheduler import start
+
+            scheduler = start(settings)
+        yield
+        if scheduler is not None:
+            scheduler.shutdown(wait=False)
+
     app = FastAPI(
         title="Protect",
+        lifespan=lifespan,
         # No public API docs in prod: the only public surface is /api/v1/*.
         docs_url=None if settings.is_prod else "/docs",
         redoc_url=None,

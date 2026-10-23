@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}{% if incident.drill %}[DRILL] {% endif %}{{ incident.title }} · Protect{% endblock %}
+{% block content %}
+<p><a href="/">← Overview</a></p>
+<h1>
+  {% if incident.drill %}<span class="badge badge-drill">DRILL</span>{% endif %}
+  <span class="badge badge-{{ incident.priority.value | lower }}">{{ incident.priority.value }}</span>
+  {{ incident.title }}
+</h1>
+<p class="muted">
+  {{ incident.status.value | capitalize }} · opened {{ incident.created_at.strftime("%Y-%m-%d %H:%M UTC") }}
+  · advisory ids: {{ summary.aliases | join(", ") or "none" }}
+</p>
+
+<div class="tiles">
+  <section class="tile"><div class="tile-value">{{ summary.vulnerable }}</div><div class="tile-label">Sites vulnerable</div></section>
+  <section class="tile"><div class="tile-value">{{ summary.needs_check }}</div><div class="tile-label">Sites to check with host</div></section>
+  <section class="tile">
+    {% if acknowledged %}
+      <div class="tile-value ok">✓</div><div class="tile-label">Acknowledged</div>
+    {% else %}
+      <form method="post" action="/incidents/{{ incident.id }}/ack">
+        <button class="button-primary" type="submit">I'm on it</button>
+      </form>
+      <div class="tile-label">Not yet acknowledged</div>
+    {% endif %}
+  </section>
+</div>
+
+<h2>Affected sites</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Site</th><th>Component</th><th>Version</th><th>Status</th><th>Fix</th><th>Score</th></tr></thead>
+  <tbody>
+  {% for case in cases %}
+    <tr>
+      <td>{{ case.site.business_name }}<br><span class="muted">{{ case.site.url }}</span></td>
+      <td><code>{{ case.component_key }}</code></td>
+      <td>{{ case.version_seen or "?" }}</td>
+      <td>{{ case.exposure.value | replace("_", " ") }}</td>
+      <td>{% if case.unsupported_branch %}upgrade branch{% else %}{{ case.fixed_version or "none yet" }}{% endif %}</td>
+      <td>{{ case.score }} ({{ case.priority.value }})</td>
+    </tr>
+    <tr class="reasons">
+      <td colspan="6">
+        <ul>
+          {% for reason in case.match_reasons + case.score_reasons %}<li>{{ reason }}</li>{% endfor %}
+        </ul>
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="6" class="muted">No affected sites.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<h2>Timeline</h2>
+<ol class="timeline">
+  {% for e in events %}
+    <li><span class="muted">{{ e.at.strftime("%Y-%m-%d %H:%M:%S UTC") }}</span> · {{ e.type | replace("_", " ") }}{% if e.note %}: {{ e.note }}{% endif %}</li>
+  {% endfor %}
+</ol>
+{% endblock %}

@@ -325,6 +325,16 @@ An incident **closes** when every case is `verified`, `not_affected`, `false_pos
 - **Acknowledge** in the dashboard ("I'm on it"). If there's no ack within 15 minutes, the alert is re-sent to the backup person, and to Teams if configured. While no backup person is set (the current state), the re-alert goes to the primary again with "[UNACKNOWLEDGED]" in the subject.
 - One alert per incident, plus one update when the number of affected sites goes up. No repeat alerts for the same case.
 
+**How it's built** (`platform/app/services/alerting.py`, `app/alerts/`):
+- **Driven by state:** a scheduler job runs every 60 seconds and works out from the database what is due. A failed send (mail server down) records nothing and is retried on the next run, so nothing goes out twice.
+- **Counting:** the count is of affected *sites*. A site counts once, at its worst state.
+- **Acknowledgement:** belongs to the incident (an `acknowledged` timeline event). It counts even if it happens before any email is sent. Each incident gets at most one escalation.
+- **Daily digest:** at 03:30 UTC (09:00 IST) for open P3/P4 incidents. Nothing is sent when there are none.
+- **Message wording:** built only from a site-free summary (`IncidentSummary`), so site names and URLs can't leak into an email. Tests check every message against every site.
+- **Email transports:** `smtp` (Mailpit in the demo), `console`, and `graph` (Microsoft Graph, milestone 2).
+- **CLI:** `send-alerts`, `send-digest` and `ack-incident` run the same logic by hand.
+- **Incident page:** `/incidents/<id>` with the "I'm on it" button. It answers only outside prod until the dashboard login exists (step 8). Form posts are refused if their `Origin` is another site or `null`.
+
 ### 4.9 Observer (public page view)
 
 This is a second opinion that a hacked plugin can't fake.
@@ -407,6 +417,7 @@ Fix steps come from reviewed templates, never from AI. They live in `platform/ap
 - **Access in the demo:** a local dev login, enabled only when `PROTECT_ENV=dev`.
 - **Roles:** `admin` (users, settings), `responder` (acts on cases), `viewer` (read only).
 - **Browser hardening:** strict CSP (`default-src 'self'`; no inline scripts; HTMX served locally), CSRF tokens, `SameSite=Strict` cookies, and sessions that expire after 12 hours.
+  - `Referrer-Policy: same-origin`: other sites never receive our URLs. `no-referrer` would make browsers send `Origin: null` on our own form posts, which breaks the origin check.
 - **Untrusted data:** everything from sites, advisories and the AI is shown as text. Nothing from them is ever passed through `|safe`.
 
 ### 4.14 Timeline and metrics

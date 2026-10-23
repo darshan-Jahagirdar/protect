@@ -30,7 +30,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         h["Content-Security-Policy"] = CSP
         h["X-Content-Type-Options"] = "nosniff"
         h["X-Frame-Options"] = "DENY"
-        h["Referrer-Policy"] = "no-referrer"
+        # same-origin, not no-referrer: no-referrer makes browsers send "Origin: null" on our
+        # own form posts, which breaks the cross-site check. Other sites still get nothing.
+        h["Referrer-Policy"] = "same-origin"
         h["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
         h["Cross-Origin-Opener-Policy"] = "same-origin"
         if self.hsts:

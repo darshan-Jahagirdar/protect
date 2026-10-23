@@ -71,6 +71,13 @@ services:
       PROTECT_ENV: dev
       PROTECT_DATABASE_URL: sqlite:////app/data/protect.sqlite
       PROTECT_BASE_URL: http://127.0.0.1:8000
+      # Alert emails go to Mailpit (http://127.0.0.1:8025). Demo-only addresses.
+      PROTECT_EMAIL_TRANSPORT: smtp
+      PROTECT_SMTP_HOST: mailpit
+      PROTECT_SMTP_PORT: "1025"
+      PROTECT_ALERT_FROM: protect-alerts@demo.test
+      PROTECT_ALERT_RECIPIENTS: team@demo.test
+      PROTECT_BACKUP_RECIPIENTS: ""
     ports:
       - "127.0.0.1:8000:8000"
     volumes:

@@ -6,6 +6,9 @@
     uv run python -m app.cli list-sites
     uv run python -m app.cli replay-advisory php2shell      # or drill-plugin
     uv run python -m app.cli list-incidents
+    uv run python -m app.cli send-alerts                     # the scheduler does this every 60s
+    uv run python -m app.cli send-digest
+    uv run python -m app.cli ack-incident <incident id>
 
 In the Docker demo:  docker compose -f docker/compose.yaml exec platform python -m app.cli ...
 """
@@ -15,10 +18,17 @@ import sys
 
 from sqlalchemy import select
 
+from app.alerts.mailer import mailer_for
 from app.db import SessionLocal
 from app.enums import HostType
 from app.models import Incident, Site
 from app.services.advisories import fixture_names, load_fixture, upsert_advisory
+from app.services.alerting import (
+    acknowledge,
+    escalate_unacknowledged,
+    send_digest,
+    send_due_alerts,
+)
 from app.services.enrollment import create_site, issue_code
 from app.services.incidents import apply_advisory
 from app.settings import get_settings
@@ -48,9 +58,14 @@ def main(argv: list[str] | None = None) -> int:
     replay.add_argument("name", choices=fixture_names())
 
     sub.add_parser("list-incidents", help="list incidents and their cases")
+    sub.add_parser("send-alerts", help="send due alerts and escalations now (normally every 60s)")
+    sub.add_parser("send-digest", help="send the P3/P4 daily digest now")
+    ack = sub.add_parser("ack-incident", help="acknowledge an incident (stops escalation)")
+    ack.add_argument("incident_id")
 
     args = parser.parse_args(argv)
-    ttl = get_settings().enrollment_code_ttl_hours
+    settings = get_settings()
+    ttl = settings.enrollment_code_ttl_hours
 
     with SessionLocal() as session:
         if args.cmd == "add-site":
@@ -83,6 +98,23 @@ def main(argv: list[str] | None = None) -> int:
         elif args.cmd == "list-incidents":
             for incident in session.scalars(select(Incident).order_by(Incident.created_at)):
                 _print_incident(incident)
+        elif args.cmd == "send-alerts":
+            mailer = mailer_for(settings)
+            alerts = send_due_alerts(session, mailer, settings)
+            escalations = escalate_unacknowledged(session, mailer, settings)
+            session.commit()
+            print(f"sent {alerts} alert(s), {escalations} escalation(s)")
+        elif args.cmd == "send-digest":
+            listed = send_digest(session, mailer_for(settings), settings)
+            print(f"digest listed {listed} incident(s)" if listed else "nothing to digest")
+        elif args.cmd == "ack-incident":
+            incident = session.get(Incident, args.incident_id)
+            if incident is None:
+                print(f"no incident {args.incident_id}", file=sys.stderr)
+                return 1
+            done = acknowledge(session, incident, user_id=None)
+            session.commit()
+            print("acknowledged" if done else "already acknowledged")
     return 0
 
 

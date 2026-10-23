@@ -170,7 +170,7 @@ def _apply_hit(session: Session, incident: Incident, advisory: Advisory, hit: Hi
 
     if case is None:
         case = Case(
-            incident_id=incident.id,
+            incident=incident,  # via the relationship, so incident.cases stays current
             site_id=hit.site.id,
             component_key=hit.component.component_key,
             exposure=exposure,

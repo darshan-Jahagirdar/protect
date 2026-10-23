@@ -353,6 +353,9 @@ class Alert(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     incident_id: Mapped[str] = mapped_column(ForeignKey("incidents.id", ondelete="CASCADE"))
     channel: Mapped[AlertChannel] = mapped_column(_enum(AlertChannel))
+    kind: Mapped[str] = mapped_column(String(20))  # new, update, escalation
+    priority: Mapped[Priority] = mapped_column(_enum(Priority))
+    sites_count: Mapped[int] = mapped_column(Integer)
     recipients_group: Mapped[str] = mapped_column(String(50))  # e.g. "responders", "backup"
     sent_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
     acked_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))

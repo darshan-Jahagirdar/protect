@@ -32,9 +32,38 @@ class Settings(BaseSettings):
     requests_per_ip_per_10min: int = 120
     enrollments_per_ip_per_10min: int = 10
 
+    # Alerts (DESIGN.md §4.8). Comma-separated addresses of our own team only.
+    email_transport: Literal["smtp", "console", "graph"] = "console"
+    smtp_host: str = "localhost"
+    smtp_port: int = 1025
+    smtp_starttls: bool = False
+    smtp_username: str | None = None
+    smtp_password: SecretStr | None = None
+    alert_from: str = "protect-alerts@localhost"
+    alert_recipients: str = ""
+    backup_recipients: str = ""
+    ack_timeout_minutes: int = 15
+    digest_hour_utc: int = 3  # 03:30 UTC = 09:00 IST
+    digest_minute_utc: int = 30
+
+    # In-process scheduler. Off in tests; the app must run with ONE worker.
+    scheduler_enabled: bool = True
+
     @property
     def is_prod(self) -> bool:
         return self.env == "prod"
+
+    @staticmethod
+    def _split(value: str) -> list[str]:
+        return [a.strip() for a in value.split(",") if a.strip()]
+
+    @property
+    def alert_recipient_list(self) -> list[str]:
+        return self._split(self.alert_recipients)
+
+    @property
+    def backup_recipient_list(self) -> list[str]:
+        return self._split(self.backup_recipients)
 
     @model_validator(mode="after")
     def _check_prod(self) -> "Settings":

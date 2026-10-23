@@ -8,6 +8,7 @@
   <a class="tile" href="/sites"><div class="tile-value">{{ active_sites }}</div><div class="tile-label">Active sites</div></a>
   <section class="tile {% if stale %}tile-warn{% endif %}"><div class="tile-value">{{ stale | length }}</div><div class="tile-label">Sites not reporting (3h+)</div></section>
   <section class="tile {% if suspicious %}tile-warn{% endif %}"><div class="tile-value">{{ suspicious | length }}</div><div class="tile-label">Odd reports</div></section>
+  <section class="tile {% if warning_sites %}tile-alert{% endif %}"><div class="tile-value">{{ warning_sites | length }}</div><div class="tile-label">Sites with warning signs</div></section>
   <section class="tile {% if fixes_not_visible %}tile-warn{% endif %}"><div class="tile-value">{{ fixes_not_visible }}</div><div class="tile-label">Fixes not showing (2h+)</div></section>
   <a class="tile" href="/advisories"><div class="tile-value">{{ needs_review }}</div><div class="tile-label">Advisories to review</div></a>
 </div>
@@ -15,10 +16,11 @@
 <h2>Open incidents</h2>
 {% include "_incident_rows.html" %}
 
-{% if stale or suspicious %}
+{% if stale or suspicious or warning_sites %}
 <h2>Sites needing attention</h2>
 <ul>
   {% for s in stale %}<li><a href="/sites/{{ s.id }}">{{ s.business_name }}</a>: no report for over 3 hours</li>{% endfor %}
+  {% for s in warning_sites %}<li><a href="/sites/{{ s.id }}#file-checks">{{ s.business_name }}</a>: file checks show warning signs</li>{% endfor %}
   {% for s in suspicious %}<li><a href="/sites/{{ s.id }}">{{ s.business_name }}</a>: sent an odd report</li>{% endfor %}
 </ul>
 {% endif %}

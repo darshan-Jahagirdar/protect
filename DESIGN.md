@@ -402,9 +402,15 @@ Fix steps come from reviewed templates, never from AI. They live in `platform/ap
 | PHP in uploads | Any `*.php`/`*.phtml`/`*.phar` under `wp-content/uploads` | Known harmless placeholders are allowed (`index.php` that matches known "Silence is golden" hashes, hashed locally) |
 | Unknown must-use plugins | Files in `wp-content/mu-plugins` that aren't on the team's allowlist for that site | Allowlist set in the dashboard |
 | Hiding spots | `ini_get('auto_prepend_file')` / `auto_append_file`: is it set, and is it inside the site root (site-relative path) or `outside_site_root`? Also any `.user.ini` files under the site root | We never send paths outside the site root; they can contain server usernames |
-| Recently changed PHP (low weight) | PHP files whose mtime changed in the last 7 days outside known update events, up to 50 paths | Noisy, and attackers can fake mtimes. A hint, not proof |
+| PHP changed since the previous scan (low weight) | PHP files outside checksum-verified code whose mtime is newer than the previous finished scan, up to 50 paths. The first scan is a silent baseline. The platform drops files in plugin or theme folders whose version changed between reports (an update) | Attackers can fake mtimes. A hint, not proof. (A 7-day window was tried first; on a fresh install it flagged everything) |
 
-- **Batching:** scans run in small batches across cron runs, with a time budget of 10 seconds per run. A cursor is stored, so cheap shared hosts never hit their time limits.
+- **Batching:** scans run in small batches across cron runs, with a time budget of 10 seconds per run. A cursor is stored, so cheap shared hosts never hit their time limits. A new scan starts at most every 3 hours; **Report now** (and Connect) starts one immediately, for example after cleaning a site. The official checksum lists are cached for 24 hours.
+- **Findings** (`platform/app/services/findings.py`): every check becomes a finding at level high, medium, low or info, with advice.
+  - **High:** core modified or unexpected, a plugin differing from its release, PHP in uploads.
+  - **Medium:** `auto_prepend_file`, `.user.ini`, mu-plugins not on the site's allowlist (an admin can mark one "expected").
+  - **Low:** PHP changed since the last scan.
+  - **Info:** unverifiable plugins, core not checkable, scan not finished.
+- **Where findings show:** new high or medium findings are written to the timeline of the site's open cases and shown as a banner on the case. They also appear on the site page and in an overview tile. Setting "compromise suspected" stays a person's call. No email is sent for warning signs yet (follow-up).
 - **Wording:** results are always "no warning signs found", never "clean". A compromised site can lie (section 6).
 - **Demo:** plant a harmless `wp-content/uploads/test.php` (it contains only a comment) and show it being flagged.
 

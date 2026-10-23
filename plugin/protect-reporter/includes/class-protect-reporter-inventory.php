@@ -194,36 +194,17 @@ class Protect_Reporter_Inventory {
 		);
 	}
 
-	/**
-	 * File checks arrive in build step 10. Until then the report says honestly that they
-	 * haven't run, apart from the two cheap settings-based checks.
-	 */
 	private static function checks() {
-		$mu_present = array();
+		return Protect_Reporter_Checks::report_section();
+	}
+
+	/** Site-relative paths of must-use plugin files (names only, never contents). */
+	public static function mu_plugin_files() {
+		$out = array();
 		foreach ( self::mu_plugins() as $mu ) {
-			$mu_present[] = $mu['file'];
+			$out[] = $mu['file'];
 		}
-		$prepend = (string) ini_get( 'auto_prepend_file' );
-		return array(
-			'core'               => array(
-				'status'     => 'unavailable',
-				'modified'   => array(),
-				'unexpected' => array(),
-			),
-			'plugins'            => array(),
-			'uploads_php'        => array(),
-			'mu_plugins_present' => $mu_present,
-			'user_ini'           => array(),
-			'auto_prepend'       => array(
-				'set'      => '' !== $prepend,
-				'location' => '' === $prepend ? null : self::location( $prepend ),
-			),
-			'recent_php_changes' => array(),
-			'scan'               => array(
-				'complete'    => false,
-				'finished_at' => null,
-			),
-		);
+		return $out;
 	}
 
 	// --- Helpers that keep every value inside the platform's schema ---------------------
@@ -274,8 +255,4 @@ class Protect_Reporter_Inventory {
 		return substr( $relative, 0, 400 );
 	}
 
-	private static function location( $path ) {
-		$relative = self::site_relative( $path );
-		return null === $relative ? 'outside_site_root' : $relative;
-	}
 }

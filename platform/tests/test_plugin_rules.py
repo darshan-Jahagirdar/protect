@@ -105,12 +105,43 @@ def test_admin_handlers_check_capability_and_nonce() -> None:
     assert "check_admin_referer" in code
 
 
-# R2: reply bodies are never read. Outbound HTTP only through WordPress's API.
-def test_reply_bodies_are_never_read() -> None:
+# R2: the platform's reply bodies are never read. The only bodies the plugin reads are the
+# official checksum lists from wordpress.org (R12), and only in the checks class.
+CHECKS_FILE = "includes/class-protect-reporter-checks.php"
+WPORG_HOSTS = ("https://api.wordpress.org/", "https://downloads.wordpress.org/")
+
+
+def test_reply_bodies_are_read_only_for_wordpress_org_checksums() -> None:
     for name, code in _all_code().items():
+        if name == CHECKS_FILE:
+            continue
         assert "wp_remote_retrieve_body" not in code, name
         assert "wp_remote_retrieve_headers" not in code, name
         assert not re.search(r"\$response\s*\[\s*'body'", code), name
+
+
+def test_sender_never_reads_platform_replies() -> None:
+    code = _all_code()["includes/class-protect-reporter-sender.php"]
+    assert "json_decode" not in code
+    assert "wp_remote_retrieve_body" not in code
+
+
+def test_outbound_get_requests_only_go_to_wordpress_org() -> None:
+    code = _all_code()[CHECKS_FILE]
+    urls = re.findall(r"'(https?://[^']+)'", code)
+    assert urls, "expected the checksum URLs to be literals"
+    for url in urls:
+        assert url.startswith(WPORG_HOSTS), url
+    for name, other in _all_code().items():
+        if name != CHECKS_FILE:
+            assert "wp_remote_get" not in other, f"wp_remote_get used outside the checks in {name}"
+
+
+def test_checks_never_send_file_contents() -> None:
+    """File contents are read only to hash them or spot the 'Silence is golden' placeholder."""
+    code = _all_code()[CHECKS_FILE]
+    assert code.count("file_get_contents") == 1
+    assert "base64_encode" not in code
 
 
 @pytest.mark.parametrize(

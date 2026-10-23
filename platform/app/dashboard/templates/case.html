@@ -21,6 +21,14 @@
 <div class="flash">Verified. {{ case.match_reasons | first }}</div>
 {% endif %}
 
+{% if warnings %}
+<div class="flash flash-error">
+  <strong>This site's file checks show warning signs:</strong>
+  {% for f in warnings %}{{ f.title }} ({{ f.paths | length or 1 }}){% if not loop.last %}; {% endif %}{% endfor %}.
+  <a href="/sites/{{ site.id }}#file-checks">Review them</a>, then set "Signs of compromise" below.
+</div>
+{% endif %}
+
 <ul class="reasons-list">
   {% for reason in case.match_reasons + case.score_reasons %}<li>{{ reason }}</li>{% endfor %}
 </ul>

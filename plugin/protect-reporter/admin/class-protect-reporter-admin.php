@@ -47,7 +47,7 @@ class Protect_Reporter_Admin {
 			$status = Protect_Reporter_Sender::enroll( $url, $code );
 			$result = 204 === $status ? 'enrolled' : 'enroll_failed_' . (int) $status;
 			if ( 204 === $status ) {
-				Protect_Reporter_Sender::send_report(); // first report straight away
+				Protect_Reporter_Sender::send_report( true ); // first report and scan straight away
 			}
 		}
 		wp_safe_redirect( self::page_url( array( 'protect_result' => $result ) ) );
@@ -56,7 +56,7 @@ class Protect_Reporter_Admin {
 
 	public static function handle_report_now() {
 		self::guard( 'protect_reporter_report_now' );
-		$status = Protect_Reporter_Sender::send_report();
+		$status = Protect_Reporter_Sender::send_report( true ); // fresh file scan too
 		wp_safe_redirect( self::page_url( array( 'protect_result' => 'report_' . (int) $status ) ) );
 		exit;
 	}

@@ -24,6 +24,7 @@ define( 'PROTECT_REPORTER_DIR', __DIR__ );
 define( 'PROTECT_REPORTER_CRON_HOOK', 'protect_reporter_send' );
 
 require_once PROTECT_REPORTER_DIR . '/includes/class-protect-reporter-inventory.php';
+require_once PROTECT_REPORTER_DIR . '/includes/class-protect-reporter-checks.php';
 require_once PROTECT_REPORTER_DIR . '/includes/class-protect-reporter-signer.php';
 require_once PROTECT_REPORTER_DIR . '/includes/class-protect-reporter-sender.php';
 require_once PROTECT_REPORTER_DIR . '/includes/class-protect-reporter-scheduler.php';

@@ -26,6 +26,39 @@
 <div class="flash flash-error">The last report was flagged: {{ report.flags | join(", ") }}</div>
 {% endif %}
 
+<h2 id="file-checks">File checks</h2>
+{% set warnings = findings | selectattr("is_warning") | list %}
+{% if report and report.payload.checks.scan.complete %}
+  <p class="muted">Last scan finished {{ report.payload.checks.scan.finished_at | replace("T", " ") | replace("Z", " UTC") }}.</p>
+{% endif %}
+{% if not warnings and report and report.payload.checks.scan.complete %}
+  <div class="flash">No warning signs found. This doesn't prove the site is clean: a compromised site can report false results.</div>
+{% endif %}
+<div class="findings">
+  {% for f in findings %}
+    <div class="finding finding-{{ f.level }}">
+      <div><span class="badge badge-level-{{ f.level }}">{{ f.level }}</span> <strong>{{ f.title }}</strong></div>
+      <div class="muted small">{{ f.advice }}</div>
+      {% if f.paths %}
+      <ul class="paths">
+        {% for p in f.paths[:50] %}
+          <li><code>{{ p }}</code>
+            {% if f.key == "mu_unknown" and is_admin %}
+            <form method="post" action="/sites/{{ site.id }}/allow-mu" class="inline-form">
+              <input type="hidden" name="csrf_token" value="{{ viewer.csrf }}">
+              <input type="hidden" name="path" value="{{ p }}">
+              <button class="link-button" type="submit">Mark as expected</button>
+            </form>
+            {% endif %}
+          </li>
+        {% endfor %}
+        {% if f.paths | length > 50 %}<li class="muted">… and {{ f.paths | length - 50 }} more</li>{% endif %}
+      </ul>
+      {% endif %}
+    </div>
+  {% endfor %}
+</div>
+
 <h2>Cases</h2>
 <ul>
   {% for c in cases %}

@@ -76,9 +76,10 @@ class Protect_Reporter_Sender {
 	/**
 	 * Build and send one report. Called by cron, after updates, and by "Report now".
 	 *
+	 * @param bool $fresh_scan Start a new file scan now ("Report now" does this).
 	 * @return int HTTP status (204 = accepted), or 0 if nothing was sent.
 	 */
-	public static function send_report() {
+	public static function send_report( $fresh_scan = false ) {
 		// Only the web SAPI reports: a CLI PHP can be a different binary from the one
 		// serving the site, so its versions would be misleading. The platform enforces this too.
 		if ( 'cli' === php_sapi_name() ) {
@@ -90,6 +91,7 @@ class Protect_Reporter_Sender {
 			return 0;
 		}
 
+		Protect_Reporter_Checks::run( Protect_Reporter_Checks::BUDGET, (bool) $fresh_scan ); // within its time budget
 		$payload = Protect_Reporter_Inventory::build();
 		$body    = wp_json_encode( $payload, JSON_UNESCAPED_SLASHES );
 		$status  = self::post( $url, '/api/v1/report', $body, Protect_Reporter_Signer::headers( $keypair, $body ) );

@@ -156,3 +156,17 @@ label.check { display: inline-flex; gap: 6px; margin-right: 12px; }
 @media (max-width: 600px) {
   .whoami { margin-left: 0; }
 }
+
+/* --- File checks (step 10) --- */
+.findings { display: grid; gap: 10px; margin-bottom: 16px; }
+.finding { background: var(--surface); border: 1px solid var(--border); border-left-width: 4px; border-radius: 8px; padding: 10px 12px; }
+.finding-high { border-left-color: #b42318; }
+.finding-medium { border-left-color: #c4320a; }
+.finding-low { border-left-color: #8a6d00; }
+.finding-info { border-left-color: var(--border); }
+.badge-level-high { background: #b42318; }
+.badge-level-medium { background: #c4320a; }
+.badge-level-low { background: #8a6d00; }
+.badge-level-info { background: #475467; }
+.paths { margin: 6px 0 0; padding-left: 18px; font-size: 14px; }
+.paths code { word-break: break-all; }

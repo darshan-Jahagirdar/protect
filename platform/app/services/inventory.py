@@ -15,6 +15,7 @@ from app.engine.matcher import OsFacts, classify_php_build
 from app.engine.versions import extract_version, parse_loose, parse_php
 from app.models import Report, Site, SiteComponent
 from app.services.enrollment import normalize_url
+from app.services.incidents import rematch_site
 
 log = logging.getLogger("protect.inventory")
 
@@ -177,5 +178,5 @@ def apply_report(
     if skipped:
         log.warning("site %s: skipped invalid component keys %s", site.id, skipped)
     session.flush()
-    # Re-matching this site against open advisories is wired in at step 6.
+    rematch_site(session, site)  # the inventory changed, so check it against advisories
     return ApplyResult(stored=True, report_id=row.id, flags=flags, skipped_keys=skipped)

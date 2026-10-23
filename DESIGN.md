@@ -271,6 +271,8 @@ The score is simple, explainable, and always shown with its reasons.
 | P3 | 30–49 |
 | P4 | < 30 |
 
+Unknown CVSS is scored as high (+25), never low. If an advisory has no verified CVSS vector, its `network_unauthenticated` flag (taken from the advisory text) decides the "remote and unauthenticated" points; otherwise the vector does. The implementation is in `platform/app/engine/scoring.py`.
+
 `needs_check` gets the same score as `vulnerable` but is labelled differently. For example, PHP2Shell scores 40 + 30 + 10 = **80, which is P1**, on every SAPI: mod_php carries the most risk, but PHP-FPM is still critical.
 
 ### 4.7 Incidents and cases
@@ -295,6 +297,17 @@ vulnerable ──(team: "fixed")──▶ fix_claimed ──(next report shows f
 needs_check ──(team records host confirmation + note)──▶ verified (manual, with evidence note)
 any ──(team, with reason)──▶ false_positive | accepted_risk | not_affected
 ```
+
+**Who may change exposure:** the engine only moves cases between `vulnerable` and `needs_check`. It reopens `verified` or `not_affected` cases if the site becomes affected again, for example after a downgrade. It never overwrites a person's decision (`fix_claimed`, `false_positive`, `accepted_risk`).
+
+When a report shows the component is now safe, or no longer installed, the case's timeline records `match_now_safe` or `component_removed`. Step 9 turns `match_now_safe` into automatic verification.
+
+**When matching runs:**
+- each confirmed advisory is matched when it arrives (replay, manual entry, or a feed later)
+- every changed report re-matches that site
+- advisories still `needs_review` open nothing
+
+The implementation is in `platform/app/services/incidents.py`.
 
 An incident **closes** when every case is `verified`, `not_affected`, `false_positive` or `accepted_risk`, and every needed client notice is marked `sent`.
 
@@ -483,12 +496,12 @@ The production database is SQLite (WAL mode), accessed through SQLAlchemy 2 with
 | `site_components` | site_id, component_key, version_raw, version_parsed (json), distro, active, first_seen, last_seen (the current inventory, rebuilt from the latest report) |
 | `nonces` | key_id, nonce, seen_at (pruned after 15 min) |
 | `observations` | id, site_id, at, http_status, server_header, powered_by, behind_cloudflare, tls_expires_at, error |
-| `advisories` | id, aliases (json: CVE, GHSA, Wordfence id…), source, source_url, title, summary_text, cvss_score, cvss_vector, kev, exploited, published_at, review_status (`confirmed`/`needs_review`/`rejected`), drill, created_at |
+| `advisories` | id, aliases (json: CVE, GHSA, Wordfence id…), source, source_url, title, summary_text, cvss_score, cvss_vector, network_unauthenticated, kev, exploited, published_at, review_status (`confirmed`/`needs_review`/`rejected`), drill, created_at |
 | `advisory_affects` | advisory_id, component_key, ranges (json, OSV-style), fixed_versions (json), distro_fixes (json) |
 | `component_aliases` | component_key, alias_type (`cpe`/`wordfence`/`wporg`/`ubuntu_pkg`/`debian_pkg`), alias_value |
 | `incidents` | id (random), title, kind, priority, status (`open`/`monitoring`/`closed`), drill, created_at, closed_at |
 | `incident_advisories` | incident_id, advisory_id |
-| `cases` | id, incident_id, site_id, component_key, exposure, shielded, shield_note, compromise, client_notice, priority, score, score_reasons (json), owner_user_id, created_at, updated_at |
+| `cases` | id, incident_id, site_id, component_key, exposure, version_seen, fixed_version, unsupported_branch, match_reasons (json), shielded, shield_note, compromise, client_notice, priority, score, score_reasons (json), owner_user_id, created_at, updated_at |
 | `checklist_items` | case_id, template_key, item_key, kind (`manual`/`auto`), done_by, done_at, note |
 | `events` | id, incident_id, case_id, actor_user_id (null = system), type, at, note, data (json) |
 | `ai_results` | id, incident_id, case_id, task, provider, model, prompt_version, content, created_at |

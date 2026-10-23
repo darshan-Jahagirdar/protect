@@ -16,6 +16,7 @@ RUN uv sync --frozen --no-dev --no-install-project
 
 COPY alembic.ini ./
 COPY migrations ./migrations
+COPY fixtures ./fixtures
 COPY app ./app
 
 RUN useradd --system --uid 10001 protect && mkdir -p /app/data && chown protect /app/data

@@ -155,16 +155,14 @@ def _find_hit(version: LooseVersion, ranges: list[dict[str, Any]]) -> _Hit | Non
     return None
 
 
-def _affected(version: str, hit: _Hit) -> MatchResult:
+def _affected(label: str, version: str | None, hit: _Hit) -> MatchResult:
+    """label is what the reason names, e.g. "PHP 8.3.30" or "version 5.9.8"."""
     if hit.unsupported:
-        reason = (
-            f"version {version} is on a branch that no longer gets fixes; "
-            "upgrade to a supported branch"
-        )
+        reason = f"{label} is on a branch that no longer gets fixes; upgrade to a supported branch"
     elif hit.fixed:
-        reason = f"version {version} is affected; fixed in {hit.fixed}"
+        reason = f"{label} is affected; fixed in {hit.fixed}"
     else:
-        reason = f"version {version} is affected and no fix is available yet"
+        reason = f"{label} is affected and no fix is available yet"
     return MatchResult(
         Bucket.VULNERABLE, (reason,), version, hit.fixed, unsupported_branch=hit.unsupported
     )
@@ -195,7 +193,7 @@ def _match_php(raw: str | None, rule: AffectRule, os: OsFacts) -> MatchResult:
         )
 
     if build is PhpBuild.UPSTREAM:
-        return _with(_affected(f"PHP {upstream}", hit), version=php.raw, build=build)
+        return _with(_affected(f"PHP {upstream}", php.raw, hit), build=build)
 
     if build in (PhpBuild.UBUNTU, PhpBuild.DEBIAN):
         return _match_distro_php(php, build, hit, rule, os)
@@ -287,7 +285,7 @@ def _match_generic(component: ComponentFacts, kind: ComponentKind, rule: AffectR
     if hit is None:
         return MatchResult(Bucket.SAFE, (f"{raw} is outside the affected ranges",), raw)
 
-    result = _affected(raw or "", hit)
+    result = _affected(f"version {raw}", raw, hit)
     if kind in SYSTEM_PROVIDED:
         return _with(
             result,

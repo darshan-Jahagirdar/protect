@@ -182,6 +182,8 @@ class Advisory(Base):
     summary_text: Mapped[str | None] = mapped_column(Text)
     cvss_score: Mapped[float | None]
     cvss_vector: Mapped[str | None] = mapped_column(String(200))
+    # Set from advisory text when no verified CVSS vector is available (scoring uses it).
+    network_unauthenticated: Mapped[bool | None] = mapped_column(Boolean)
     kev: Mapped[bool] = mapped_column(Boolean, default=False)
     exploited: Mapped[bool] = mapped_column(Boolean, default=False)
     published_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
@@ -261,6 +263,10 @@ class Case(Base):
     site_id: Mapped[int] = mapped_column(ForeignKey("sites.id", ondelete="CASCADE"))
     component_key: Mapped[str] = mapped_column(String(200))
     exposure: Mapped[Exposure] = mapped_column(_enum(Exposure))
+    version_seen: Mapped[str | None] = mapped_column(String(100))
+    fixed_version: Mapped[str | None] = mapped_column(String(100))
+    unsupported_branch: Mapped[bool] = mapped_column(Boolean, default=False)
+    match_reasons: Mapped[list[str]] = mapped_column(JSON, default=list)
     shielded: Mapped[bool] = mapped_column(Boolean, default=False)
     shield_note: Mapped[str | None] = mapped_column(String(500))
     compromise: Mapped[Compromise] = mapped_column(_enum(Compromise), default=Compromise.NONE)

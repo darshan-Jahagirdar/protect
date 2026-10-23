@@ -4,6 +4,8 @@
         --host-type managed-wp
     uv run python -m app.cli new-code --site-id 1
     uv run python -m app.cli list-sites
+    uv run python -m app.cli replay-advisory php2shell      # or drill-plugin
+    uv run python -m app.cli list-incidents
 
 In the Docker demo:  docker compose -f docker/compose.yaml exec platform python -m app.cli ...
 """
@@ -15,8 +17,10 @@ from sqlalchemy import select
 
 from app.db import SessionLocal
 from app.enums import HostType
-from app.models import Site
+from app.models import Incident, Site
+from app.services.advisories import fixture_names, load_fixture, upsert_advisory
 from app.services.enrollment import create_site, issue_code
+from app.services.incidents import apply_advisory
 from app.settings import get_settings
 
 
@@ -39,6 +43,11 @@ def main(argv: list[str] | None = None) -> int:
     code.add_argument("--site-id", type=int, required=True)
 
     sub.add_parser("list-sites", help="list registered sites")
+
+    replay = sub.add_parser("replay-advisory", help="load a fixture advisory and match it now")
+    replay.add_argument("name", choices=fixture_names())
+
+    sub.add_parser("list-incidents", help="list incidents and their cases")
 
     args = parser.parse_args(argv)
     ttl = get_settings().enrollment_code_ttl_hours
@@ -63,7 +72,31 @@ def main(argv: list[str] | None = None) -> int:
                     s.last_report_at.isoformat(timespec="seconds") if s.last_report_at else "never"
                 )
                 print(f"#{s.id}  {s.status.value:<8} {s.url:<40} last report: {last}")
+        elif args.cmd == "replay-advisory":
+            advisory = upsert_advisory(session, load_fixture(args.name))
+            incident = apply_advisory(session, advisory)
+            session.commit()
+            if incident is None:
+                print(f"{advisory.title}: no active site is affected")
+            else:
+                _print_incident(incident)
+        elif args.cmd == "list-incidents":
+            for incident in session.scalars(select(Incident).order_by(Incident.created_at)):
+                _print_incident(incident)
     return 0
+
+
+def _print_incident(incident: Incident) -> None:
+    drill = "[DRILL] " if incident.drill else ""
+    status = f"{incident.status.value}, {incident.id}"
+    print(f"{drill}{incident.priority.value} {incident.title}  ({status})")
+    for case in incident.cases:
+        print(
+            f"   site #{case.site_id} {case.component_key} {case.version_seen}: "
+            f"{case.exposure.value}, score {case.score} {case.priority.value}"
+        )
+        for reason in [*case.match_reasons, *case.score_reasons]:
+            print(f"      - {reason}")
 
 
 if __name__ == "__main__":

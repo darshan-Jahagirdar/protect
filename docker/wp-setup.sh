@@ -33,6 +33,11 @@ if ! wp theme is-installed twentytwentyfive 2>/dev/null; then
   wp theme install twentytwentyfive --activate
 fi
 
+# Hello Dolly (installed, left inactive) is the target of the drill-plugin practice advisory.
+if ! wp plugin is-installed hello-dolly 2>/dev/null; then
+  wp plugin install hello-dolly
+fi
+
 # Protect Reporter is mounted read-only from ../plugin/protect-reporter.
 if [ -d wp-content/plugins/protect-reporter ]; then
   wp plugin is-active protect-reporter || wp plugin activate protect-reporter

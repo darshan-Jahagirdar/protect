@@ -1,0 +1,24 @@
+{
+  "fixture": "drill-plugin",
+  "title": "Drill: unauthenticated stored XSS in Hello Dolly",
+  "aliases": ["DRILL-2026-0001"],
+  "source": "replay",
+  "source_url": null,
+  "published_at": null,
+  "cvss_score": 7.2,
+  "cvss_vector": null,
+  "network_unauthenticated": true,
+  "kev": false,
+  "exploited": false,
+  "drill": true,
+  "summary_text": "Practice advisory, not a real vulnerability. It matches every installed version of the Hello Dolly plugin so the team can rehearse the plugin-flaw workflow end to end.",
+  "notes": "Fictional. 'fixed' is set above any real version so every install matches. Always shown as [DRILL].",
+  "affects": [
+    {
+      "component_key": "wp-plugin:hello-dolly",
+      "ranges": [{"introduced": "0", "fixed": "999.0"}],
+      "fixed_versions": ["999.0"],
+      "distro_fixes": {}
+    }
+  ]
+}

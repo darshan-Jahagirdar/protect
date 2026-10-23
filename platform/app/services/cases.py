@@ -30,6 +30,7 @@ from app.models import (
     User,
 )
 from app.services.incidents import DONE, apply_advisory, refresh_incident_status
+from app.services.observations import edge_status, latest_observation
 
 DECISIONS = {Exposure.FALSE_POSITIVE, Exposure.ACCEPTED_RISK, Exposure.NOT_AFFECTED}
 OPEN = {Exposure.VULNERABLE, Exposure.NEEDS_CHECK}
@@ -190,6 +191,7 @@ def checklist(session: Session, case: Case) -> tuple[ChecklistTemplate, list[Che
         "current_version": case.version_seen or "?",
         "fix_text": _fix_text(case),
         "advisory_ids": ", ".join(ids) or "this advisory",
+        "edge_status": edge_status(latest_observation(session, site) if site else None),
         "host": (
             site.host_name
             if site and site.host_name

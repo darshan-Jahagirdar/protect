@@ -42,6 +42,13 @@ from app.services.alerting import acknowledge, is_acknowledged, summarize
 from app.services.enrollment import create_site, issue_code
 from app.services.findings import latest_findings
 from app.services.incidents import apply_advisory, fix_not_visible, rematch_site
+from app.services.observations import (
+    disagreement,
+    latest_observation,
+    observe_site,
+    public_php_version,
+    tls_warning,
+)
 
 templates = Jinja2Templates(directory=Path(__file__).resolve().parent / "templates")
 router = APIRouter()
@@ -58,6 +65,7 @@ MESSAGES = {  # fixed texts only: nothing user-supplied is reflected from the UR
     "user_added": "Team member added.",
     "user_disabled": "Team member disabled.",
     "closed": "Incident closed.",
+    "observed": "Public homepage viewed.",
 }
 
 
@@ -166,6 +174,9 @@ def overview(request: Request, viewer: ViewerDep, session: SessionDep) -> HTMLRe
             "warning_sites": [
                 s for s in active if any(f.is_warning for f in latest_findings(session, s))
             ],
+            "disagree_sites": [
+                s for s in active if disagreement(session, s, latest_observation(session, s))
+            ],
             "needs_review": session.scalar(
                 select(func.count())
                 .select_from(Advisory)
@@ -253,6 +264,10 @@ def site_view(
             "components": sorted(site.components, key=lambda c: c.component_key),
             "code_hours": request.app.state.settings.enrollment_code_ttl_hours,
             "findings": latest_findings(session, site),
+            "observation": (obs := latest_observation(session, site)),
+            "disagrees": disagreement(session, site, obs),
+            "tls_warning": tls_warning(obs),
+            "public_php": public_php_version(obs),
         },
     )
 
@@ -308,6 +323,18 @@ def site_allow_mu(
         _audit(session, viewer.user, "mu_plugin_allowed", str(site.id), path=path)
         session.commit()
     return RedirectResponse(f"/sites/{site.id}?msg=saved#file-checks", status_code=303)
+
+
+@router.post("/sites/{site_id}/observe", dependencies=CSRF)
+def site_observe(
+    request: Request, site_id: int, viewer: ResponderDep, session: SessionDep
+) -> Response:
+    """View the site's public homepage now (one GET /, headers only)."""
+    site = _get(session, Site, site_id)
+    observe_site(session, site, request.app.state.settings, observe_fn=request.app.state.observe)
+    _audit(session, viewer.user, "observed", str(site.id))
+    session.commit()
+    return RedirectResponse(f"/sites/{site.id}?msg=observed#public-view", status_code=303)
 
 
 # --- Incidents ------------------------------------------------------------------------------
@@ -392,6 +419,7 @@ def case_view(request: Request, session: Session, case: Case, error: str | None 
             "decisions": [Exposure.FALSE_POSITIVE, Exposure.ACCEPTED_RISK, Exposure.NOT_AFFECTED],
             "fix_not_visible": fix_not_visible(session, case),
             "warnings": [f for f in latest_findings(session, case.site) if f.is_warning],
+            "disagrees": disagreement(session, case.site, latest_observation(session, case.site)),
             "compromise_values": list(Compromise),
         },
         status=400 if error else 200,

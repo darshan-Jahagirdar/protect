@@ -8,6 +8,7 @@ from apscheduler.triggers.cron import CronTrigger
 from app.alerts.mailer import mailer_for
 from app.db import SessionLocal
 from app.services.alerting import run_alert_cycle, run_digest
+from app.services.observations import run_observer
 from app.settings import Settings
 
 log = logging.getLogger("protect.scheduler")
@@ -24,9 +25,19 @@ def start(settings: Settings) -> BackgroundScheduler:
         id="digest",
         **common,
     )
+    # Checks every 5 minutes which sites are due (daily, or every 30 min during P1/P2).
+    scheduler.add_job(
+        run_observer,
+        "interval",
+        minutes=5,
+        id="observer",
+        args=[SessionLocal, settings],
+        max_instances=1,
+        coalesce=True,
+    )
     scheduler.start()
     log.info(
-        "scheduler started: alerts every 60s, digest daily at %02d:%02d UTC",
+        "scheduler started: alerts every 60s, observer every 5 min, digest daily at %02d:%02d UTC",
         settings.digest_hour_utc,
         settings.digest_minute_utc,
     )

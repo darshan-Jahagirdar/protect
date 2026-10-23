@@ -18,6 +18,7 @@ from app.api.routes import Limiters
 from app.api.routes import router as api_router
 from app.dashboard.auth import NotSignedIn
 from app.dashboard.routes import router as dashboard_router
+from app.observer.observe import observe
 from app.security import SecurityHeadersMiddleware
 from app.settings import Settings, get_settings
 
@@ -58,6 +59,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.state.settings = settings
     app.state.limiters = Limiters.from_settings(settings)
+    app.state.observe = observe  # swappable in tests; the real one makes one GET /
     app.add_middleware(SecurityHeadersMiddleware, hsts=settings.is_prod)
     app.mount("/static", StaticFiles(directory=APP_DIR / "dashboard" / "static"), name="static")
 

@@ -11,7 +11,7 @@ items:
     text: "If the host offers {fix_text}, switch the site to it. Otherwise open a ticket asking when it will be patched, and note the reference here."
   - key: edge_rules
     kind: manual
-    text: "Confirm edge protection is on: Cloudflare managed WAF rules (if the site is behind Cloudflare). Not 'Under Attack' mode, which is a DDoS challenge."
+    text: "Confirm edge protection is on: Cloudflare managed WAF rules (if the site is behind Cloudflare). Not 'Under Attack' mode, which is a DDoS challenge. {edge_status}"
   - key: origin_lock
     kind: manual
     text: "If the site is behind Cloudflare, confirm the origin only accepts traffic from Cloudflare, or note that it can't."

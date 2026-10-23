@@ -21,6 +21,9 @@
 <div class="flash">Verified. {{ case.match_reasons | first }}</div>
 {% endif %}
 
+{% if disagrees %}
+<div class="flash flash-error"><strong>Report and public view disagree:</strong> {{ disagrees }}. <a href="/sites/{{ site.id }}#public-view">See the public view</a>.</div>
+{% endif %}
 {% if warnings %}
 <div class="flash flash-error">
   <strong>This site's file checks show warning signs:</strong>

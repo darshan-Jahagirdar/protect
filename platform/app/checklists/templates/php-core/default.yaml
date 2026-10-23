@@ -8,7 +8,7 @@ items:
     text: "Get PHP moved to {fix_text}, through the host or on the server."
   - key: edge_rules
     kind: manual
-    text: "Confirm edge protection is on: Cloudflare managed WAF rules (if the site is behind Cloudflare) or the host's firewall. Not 'Under Attack' mode."
+    text: "Confirm edge protection is on: Cloudflare managed WAF rules (if the site is behind Cloudflare) or the host's firewall. Not 'Under Attack' mode. {edge_status}"
   - key: report_shows_fix
     kind: auto
     text: "The site's next report shows {fix_text}. Press 'Report now' in the plugin to speed this up."

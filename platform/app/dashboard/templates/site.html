@@ -26,6 +26,36 @@
 <div class="flash flash-error">The last report was flagged: {{ report.flags | join(", ") }}</div>
 {% endif %}
 
+<h2 id="public-view">Public view</h2>
+<p class="muted small">What any visitor's browser sees: one request for the homepage, headers only.</p>
+{% if disagrees %}
+<div class="flash flash-error"><strong>Report and public view disagree:</strong> {{ disagrees }}. Either the plugin's report is wrong (a hacked site can lie) or a cache or proxy is answering with old headers. Check the server directly.</div>
+{% endif %}
+{% if tls_warning %}<div class="flash flash-error">{{ tls_warning | capitalize }}.</div>{% endif %}
+{% if observation %}
+<div class="table-wrap">
+<table>
+  <tbody>
+    <tr><th>Viewed</th><td>{{ observation.at.strftime("%Y-%m-%d %H:%M UTC") }}</td></tr>
+    {% if observation.error %}<tr><th>Problem</th><td>{{ observation.error }}</td></tr>{% endif %}
+    <tr><th>HTTP status</th><td>{{ observation.http_status or "?" }}</td></tr>
+    <tr><th>Server header</th><td>{{ observation.server_header or "not shown" }}</td></tr>
+    <tr><th>PHP announced</th><td>{{ observation.powered_by or "not shown (that's normal on many hosts)" }}</td></tr>
+    <tr><th>Behind Cloudflare</th><td>{% if observation.behind_cloudflare is none %}unknown{% elif observation.behind_cloudflare %}yes{% else %}no{% endif %}</td></tr>
+    <tr><th>HTTPS certificate expires</th><td>{{ observation.tls_expires_at.strftime("%Y-%m-%d") if observation.tls_expires_at else "n/a (not HTTPS, or not checked)" }}</td></tr>
+  </tbody>
+</table>
+</div>
+{% else %}
+<p class="muted">Not viewed yet. It runs daily, and every 30 minutes while the site is in a P1/P2 incident.</p>
+{% endif %}
+{% if viewer.user.role.value != "viewer" %}
+<form method="post" action="/sites/{{ site.id }}/observe" class="inline-form">
+  <input type="hidden" name="csrf_token" value="{{ viewer.csrf }}">
+  <button class="button-secondary" type="submit">View the public homepage now</button>
+</form>
+{% endif %}
+
 <h2 id="file-checks">File checks</h2>
 {% set warnings = findings | selectattr("is_warning") | list %}
 {% if report and report.payload.checks.scan.complete %}

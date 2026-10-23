@@ -80,6 +80,8 @@ services:
       PROTECT_ALERT_FROM: protect-alerts@demo.test
       PROTECT_ALERT_RECIPIENTS: team@demo.test
       PROTECT_BACKUP_RECIPIENTS: ""
+      # The demo site's public URL isn't reachable from inside this container; view it here.
+      PROTECT_OBSERVER_REWRITES: "http://127.0.0.1:8081=http://wp-vuln"
     ports:
       - "127.0.0.1:8000:8000"
     volumes:

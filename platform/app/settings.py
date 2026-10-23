@@ -46,6 +46,13 @@ class Settings(BaseSettings):
     digest_hour_utc: int = 3  # 03:30 UTC = 09:00 IST
     digest_minute_utc: int = 30
 
+    # Observer (DESIGN.md §4.9). Rewrites are for the Docker demo only, where the site's public
+    # URL (127.0.0.1:8081) isn't reachable from inside the platform container. Format:
+    # "http://127.0.0.1:8081=http://wp-vuln". Ignored in prod.
+    observer_rewrites: str = ""
+    observer_interval_hours: int = 24
+    observer_urgent_interval_minutes: int = 30
+
     # In-process scheduler. Off in tests; the app must run with ONE worker.
     scheduler_enabled: bool = True
 
@@ -64,6 +71,13 @@ class Settings(BaseSettings):
     @property
     def backup_recipient_list(self) -> list[str]:
         return self._split(self.backup_recipients)
+
+    @property
+    def observer_rewrite_map(self) -> dict[str, str]:
+        if self.is_prod:
+            return {}
+        pairs = (item.split("=", 1) for item in self._split(self.observer_rewrites) if "=" in item)
+        return {a.strip().rstrip("/"): b.strip().rstrip("/") for a, b in pairs}
 
     @field_validator("secret_key", mode="before")
     @classmethod

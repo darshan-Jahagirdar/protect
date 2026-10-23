@@ -352,7 +352,14 @@ This is a second opinion that a hacked plugin can't fake.
   - The PHP version, if the header shows it. If it **disagrees** with the plugin's report, the case is flagged **"report and public view disagree"**.
   - TLS expiry, as a small extra.
 - **Legal:** covered by one line added to the existing authorization clause ("we may view your public web pages"). No new document is needed.
-- **Demo:** in the demo, the observer uses the site's internal Docker URL (`http://wp-vuln`), because `127.0.0.1:8081` isn't reachable from inside the platform container.
+- **Demo:** the site's public URL (`127.0.0.1:8081`) isn't reachable from inside the platform container. So, outside prod only, `PROTECT_OBSERVER_REWRITES` connects to `http://wp-vuln` while sending the public `Host` header, and WordPress answers as it would to a visitor.
+- **Safety** (`platform/app/observer/observe.py`):
+  - Redirects are followed by hand, at most 3, and each hop must be http(s).
+  - In prod, each hop must resolve to a public IP. Loopback, private, link-local, CGNAT and cloud metadata addresses are blocked, so a hacked site can't use a redirect to make Protect probe its own network.
+  - The response body is never read; tests prove it with a tripwire stream. The only method used is GET.
+- **Schedule:** a 5-minute scheduler job observes due sites (daily, or every 30 minutes while the site is in an open P1/P2 incident). Observations older than 90 days are pruned. "View the public homepage now" on the site page does one on demand (responder+).
+- **Cross-check** (`platform/app/services/observations.py`): `X-Powered-By: PHP/x.y.z` is compared with the plugin's reported PHP. A new disagreement is written to the timeline of the site's open cases (`public_view_disagrees`) and shown as a banner on the site and case pages and as an overview tile. A hidden version (no header) is never a disagreement.
+- **Checklists:** the "edge protection" step now says what the observer saw ("sees this site behind Cloudflare" / "doesn't see Cloudflare" / "hasn't checked yet").
 
 ### 4.10 AI module
 

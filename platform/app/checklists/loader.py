@@ -14,7 +14,9 @@ import yaml
 TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 KINDS = ("manual", "auto")
 # Every placeholder a template may use. Values are filled from the case, never from AI.
-PLACEHOLDERS = frozenset({"component", "current_version", "fix_text", "advisory_ids", "host"})
+PLACEHOLDERS = frozenset(
+    {"component", "current_version", "fix_text", "advisory_ids", "host", "edge_status"}
+)
 
 
 class TemplateError(ValueError):

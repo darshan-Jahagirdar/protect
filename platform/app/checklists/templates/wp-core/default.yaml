@@ -5,7 +5,7 @@ items:
     text: "Update WordPress to {fix_text} (Dashboard → Updates, or the host's tools). Managed hosts often do this automatically: check first."
   - key: edge_rules
     kind: manual
-    text: "Check whether the firewall (Cloudflare or the host's) has a rule for this flaw, and confirm it's on."
+    text: "Check whether the firewall (Cloudflare or the host's) has a rule for this flaw, and confirm it's on. {edge_status}"
   - key: report_shows_fix
     kind: auto
     text: "The site's next report shows {fix_text}."

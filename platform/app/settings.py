@@ -53,6 +53,17 @@ class Settings(BaseSettings):
     observer_interval_hours: int = 24
     observer_urgent_interval_minutes: int = 30
 
+    # AI (DESIGN.md §4.10). "fake" works offline. Keys live in .env only, never in the repo.
+    ai_provider: Literal["fake", "gemini", "openai", "anthropic"] = "fake"
+    gemini_api_key: SecretStr | None = None
+    gemini_model: str = "gemini-4-argon"
+    openai_api_key: SecretStr | None = None
+    openai_model: str = ""
+    anthropic_api_key: SecretStr | None = None
+    anthropic_model: str = "claude-sonnet-5-5"
+    ai_summary_thinking: Literal["low", "medium", "high"] = "medium"
+    ai_draft_thinking: Literal["low", "medium", "high"] = "high"
+
     # In-process scheduler. Off in tests; the app must run with ONE worker.
     scheduler_enabled: bool = True
 
@@ -79,7 +90,9 @@ class Settings(BaseSettings):
         pairs = (item.split("=", 1) for item in self._split(self.observer_rewrites) if "=" in item)
         return {a.strip().rstrip("/"): b.strip().rstrip("/") for a, b in pairs}
 
-    @field_validator("secret_key", mode="before")
+    @field_validator(
+        "secret_key", "gemini_api_key", "openai_api_key", "anthropic_api_key", mode="before"
+    )
     @classmethod
     def _empty_secret_is_none(cls, v: object) -> object:
         # Compose passes "" when the variable is unset; an empty key must never sign anything.

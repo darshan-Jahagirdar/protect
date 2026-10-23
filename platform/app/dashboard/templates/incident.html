@@ -45,6 +45,21 @@
 </form>
 {% endif %}
 
+<h2 id="ai-summary">What this is <span class="muted small">· AI summary</span></h2>
+{% if ai_summary %}
+  <div class="card ai-text">{{ ai_summary.content }}</div>
+  <p class="muted small">Written by {{ ai_summary.provider }} / {{ ai_summary.model }} at {{ ai_summary.created_at.strftime("%Y-%m-%d %H:%M UTC") }} from the public advisory and version numbers only (no site details). AI can be wrong: the versions, scores and checklists above come from Protect's own rules, not from this text.</p>
+{% else %}
+  <p class="muted">No summary yet.</p>
+{% endif %}
+{% if viewer.user.role.value != "viewer" %}
+<form method="post" action="/incidents/{{ incident.id }}/ai-summary" class="inline-form">
+  <input type="hidden" name="csrf_token" value="{{ viewer.csrf }}">
+  {% if ai_summary %}<input type="hidden" name="force" value="1">{% endif %}
+  <button class="button-secondary" type="submit">{% if ai_summary %}Rewrite the summary{% else %}Write a plain-English summary{% endif %}</button>
+</form>
+{% endif %}
+
 <h2>Affected sites</h2>
 <div class="table-wrap">
 <table>

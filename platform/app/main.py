@@ -14,6 +14,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
+from app.ai.providers import provider_for
 from app.api.routes import Limiters
 from app.api.routes import router as api_router
 from app.dashboard.auth import NotSignedIn
@@ -60,6 +61,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     app.state.limiters = Limiters.from_settings(settings)
     app.state.observe = observe  # swappable in tests; the real one makes one GET /
+    app.state.ai_provider_factory = provider_for  # swappable in tests (fake provider)
     app.add_middleware(SecurityHeadersMiddleware, hsts=settings.is_prod)
     app.mount("/static", StaticFiles(directory=APP_DIR / "dashboard" / "static"), name="static")
 

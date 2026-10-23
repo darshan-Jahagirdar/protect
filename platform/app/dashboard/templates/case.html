@@ -137,6 +137,50 @@
 </div>
 {% endif %}
 
+<h2 id="client-message">Client message</h2>
+{% if draft %}
+  {% for w in draft_warnings %}<div class="flash flash-error">{{ w }}</div>{% endfor %}
+  {% if draft.sent_at %}
+    <div class="flash">Marked as sent {{ draft.sent_at.strftime("%Y-%m-%d %H:%M UTC") }}.</div>
+    <div class="card ai-text">{{ draft.content }}</div>
+  {% else %}
+  <form method="post" action="/cases/{{ case.id }}/draft" class="card form-grid wide-form">
+    <input type="hidden" name="csrf_token" value="{{ viewer.csrf }}">
+    <input type="hidden" name="action" value="save">
+    <p class="muted small">AI draft from the advisory only. Protect filled in the site and sender names. Replace every {{ "{{" }}…{{ "}}" }} placeholder, then approve. Protect never sends it: you send it yourself, then mark it sent.</p>
+    <textarea name="content" rows="14" maxlength="6000" {% if viewer.user.role.value == "viewer" %}readonly{% endif %}>{{ draft.content }}</textarea>
+    {% if viewer.user.role.value != "viewer" %}<button class="button-secondary" type="submit">Save changes</button>{% endif %}
+  </form>
+  {% if viewer.user.role.value != "viewer" %}
+  <div class="stack-row">
+    {% if not draft.approved_at %}
+    <form method="post" action="/cases/{{ case.id }}/draft" class="inline-form">
+      <input type="hidden" name="csrf_token" value="{{ viewer.csrf }}">
+      <input type="hidden" name="action" value="approve">
+      <button class="button-primary" type="submit">Approve</button>
+    </form>
+    {% else %}
+    <span class="muted">Approved {{ draft.approved_at.strftime("%Y-%m-%d %H:%M UTC") }} by {{ users.get(draft.approved_by, "?") }}.</span>
+    <form method="post" action="/cases/{{ case.id }}/draft" class="inline-form">
+      <input type="hidden" name="csrf_token" value="{{ viewer.csrf }}">
+      <input type="hidden" name="action" value="sent">
+      <button class="button-primary" type="submit">I've sent it</button>
+    </form>
+    {% endif %}
+  </div>
+  {% endif %}
+  {% endif %}
+{% else %}
+  <p class="muted">No draft yet.</p>
+  {% if viewer.user.role.value != "viewer" %}
+  <form method="post" action="/cases/{{ case.id }}/draft" class="inline-form">
+    <input type="hidden" name="csrf_token" value="{{ viewer.csrf }}">
+    <input type="hidden" name="action" value="create">
+    <button class="button-secondary" type="submit">Draft a client message</button>
+  </form>
+  {% endif %}
+{% endif %}
+
 <h2>Case timeline</h2>
 {% include "_timeline.html" %}
 {% endblock %}

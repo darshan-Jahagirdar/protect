@@ -82,6 +82,11 @@ services:
       PROTECT_BACKUP_RECIPIENTS: ""
       # The demo site's public URL isn't reachable from inside this container; view it here.
       PROTECT_OBSERVER_REWRITES: "http://127.0.0.1:8081=http://wp-vuln"
+      # AI provider and keys come from docker/.env (gitignored). "fake" works offline.
+      PROTECT_AI_PROVIDER: ${PROTECT_AI_PROVIDER:-fake}
+      PROTECT_GEMINI_API_KEY: ${PROTECT_GEMINI_API_KEY:-}
+      PROTECT_OPENAI_API_KEY: ${PROTECT_OPENAI_API_KEY:-}
+      PROTECT_OPENAI_MODEL: ${PROTECT_OPENAI_MODEL:-}
     ports:
       - "127.0.0.1:8000:8000"
     volumes:

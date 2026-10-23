@@ -324,6 +324,8 @@ class AIResult(Base):
     provider: Mapped[str] = mapped_column(String(50))
     model: Mapped[str] = mapped_column(String(100))
     prompt_version: Mapped[str] = mapped_column(String(20))
+    # sha256 of the AI's (site-free) input: a cached result is reused only for the same input.
+    input_hash: Mapped[str | None] = mapped_column(String(64))
     content: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = _created()
 

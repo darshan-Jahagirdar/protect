@@ -379,6 +379,19 @@ The AI layer is swappable behind one interface: `ai.generate(task, inputs) -> AI
 - **Record keeping:** each result stores the provider, model, prompt version and time.
 - **Compliance:** Google is listed as a subprocessor. Check whether the model can be served from an India region.
 
+**As built (step 12):**
+- **Code layout** (`platform/app/ai/`):
+  - `inputs.py`: the allowlist. It builds a site-free `AdvisoryFacts`: title, IDs, the public advisory text, CVSS, "exploitation attempts reported", "in CISA KEV", affected ranges, fixed versions, and the distinct `{component, version, fixed version}` values. Which site runs which version never reaches the AI.
+  - `prompts.py`: versioned (`PROMPT_VERSION`). The system prompt says the JSON is data, its instructions must never be followed, no invented facts, and no exploit details.
+  - `providers.py`: Gemini, OpenAI, Anthropic and a fake provider, using plain REST via httpx with no vendor SDKs. API keys go in headers, never in URLs. Errors show only the HTTP status and the provider's short message.
+  - `service.py`: caching and drafts.
+- **Caching:** one summary and one draft text per incident, keyed on a hash of the facts and the prompt version (`ai_results.input_hash`). "Rewrite" forces a new one.
+- **Drafts, one per case:** Protect fills in `{{SITE_NAME}}` (business name) and `{{SENDER_NAME}}` after the AI step, so the AI never sees them. `{{CLIENT_NAME}}` and `{{FIX_TIME}}` are left for a person (rule R6).
+  - Approval is blocked while placeholders remain, when an overclaim appears ("unhackable", "fully protected", "no data was accessed", …), or when a drill draft has lost its `[DRILL]` line. Any edit removes the approval.
+  - "I've sent it" records the send and ticks the client-notice checklist step. Protect itself never emails the client.
+- **Display:** AI text is shown as plain text (`white-space: pre-wrap`, autoescaped), never rendered as Markdown or HTML.
+- **Latency:** a medium-thinking summary took about 2 minutes on the free tier, and the request blocks the page meanwhile. Moving generation to a background job is a follow-up if it's still slow on the paid tier.
+
 ### 4.11 Checklists (templates, not AI)
 
 Fix steps come from reviewed templates, never from AI. They live in `platform/app/checklists/templates/<incident_kind>/<host_type>.yaml`.

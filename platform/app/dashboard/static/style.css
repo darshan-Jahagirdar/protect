@@ -170,3 +170,11 @@ label.check { display: inline-flex; gap: 6px; margin-right: 12px; }
 .badge-level-info { background: #475467; }
 .paths { margin: 6px 0 0; padding-left: 18px; font-size: 14px; }
 .paths code { word-break: break-all; }
+
+/* --- AI text (step 12) --- */
+.ai-text { white-space: pre-wrap; line-height: 1.55; }
+textarea {
+  width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; padding: 10px; font: inherit; line-height: 1.5;
+}
+.wide-form { max-width: 760px; }

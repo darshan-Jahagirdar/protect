@@ -15,6 +15,8 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.ai import service as ai_service
+from app.ai.providers import AIError
 from app.dashboard.auth import (
     AdminDep,
     ResponderDep,
@@ -66,6 +68,7 @@ MESSAGES = {  # fixed texts only: nothing user-supplied is reflected from the UR
     "user_disabled": "Team member disabled.",
     "closed": "Incident closed.",
     "observed": "Public homepage viewed.",
+    "ai_done": "AI summary ready. Check it before relying on it.",
 }
 
 
@@ -369,6 +372,7 @@ def incident_view(
             "events": events,
             "users": {u.id: u.display_name for u in session.scalars(select(User))},
             "notices_missing": case_actions.notices_missing(incident),
+            "ai_summary": ai_service.latest_summary(session, incident),
             "error": error,
         },
         status=400 if error else 200,
@@ -420,6 +424,10 @@ def case_view(request: Request, session: Session, case: Case, error: str | None 
             "fix_not_visible": fix_not_visible(session, case),
             "warnings": [f for f in latest_findings(session, case.site) if f.is_warning],
             "disagrees": disagreement(session, case.site, latest_observation(session, case.site)),
+            "draft": (draft := ai_service.draft_for(session, case)),
+            "draft_warnings": ai_service.draft_warnings(draft, case.incident.drill)
+            if draft
+            else [],
             "compromise_values": list(Compromise),
         },
         status=400 if error else 200,
@@ -480,6 +488,67 @@ async def case_checklist(request: Request, case_id: int, viewer: ResponderDep, s
         return case_view(request, session, case, error=str(e))
     session.commit()
     return RedirectResponse(f"/cases/{case.id}#checklist", status_code=303)
+
+
+# --- AI: incident summary and client drafts ---------------------------------------------------
+
+
+def _provider(request: Request):  # type: ignore[no-untyped-def]
+    return request.app.state.ai_provider_factory(request.app.state.settings)
+
+
+@router.post("/incidents/{incident_id}/ai-summary", response_class=HTMLResponse, dependencies=CSRF)
+async def incident_ai_summary(
+    request: Request, incident_id: str, viewer: ResponderDep, session: SessionDep
+):
+    incident = _get(session, Incident, incident_id)
+    form = await request.form()
+    settings = request.app.state.settings
+    try:
+        ai_service.incident_summary(
+            session,
+            incident,
+            _provider(request),
+            settings.ai_summary_thinking,
+            force=form.get("force") == "1",
+        )
+    except AIError as e:
+        session.rollback()
+        return incident_view(request, session, _get(session, Incident, incident_id), error=str(e))
+    session.commit()
+    return RedirectResponse(f"/incidents/{incident.id}?msg=ai_done#ai-summary", status_code=303)
+
+
+@router.post("/cases/{case_id}/draft", response_class=HTMLResponse, dependencies=CSRF)
+async def case_draft(request: Request, case_id: int, viewer: ResponderDep, session: SessionDep):
+    case = _get(session, Case, case_id)
+    form = await request.form()
+    action = str(form.get("action", "create"))
+    draft = ai_service.draft_for(session, case)
+    try:
+        if action == "create":
+            ai_service.create_draft(
+                session,
+                case,
+                viewer.user,
+                _provider(request),
+                request.app.state.settings.ai_draft_thinking,
+            )
+        elif draft is None:
+            raise ai_service.DraftError("There's no draft yet.")
+        elif action == "save":
+            ai_service.save_draft(session, case, draft, viewer.user, str(form.get("content", "")))
+        elif action == "approve":
+            ai_service.approve_draft(session, case, draft, viewer.user)
+        elif action == "sent":
+            ai_service.mark_sent(session, case, draft, viewer.user)
+        else:
+            raise HTTPException(status_code=400)
+    except (AIError, ai_service.DraftError, case_actions.CaseActionError) as e:
+        session.rollback()
+        return case_view(request, session, _get(session, Case, case_id), error=str(e))
+    session.commit()
+    return RedirectResponse(f"/cases/{case.id}?msg=saved#client-message", status_code=303)
 
 
 # --- Advisories --------------------------------------------------------------------------------

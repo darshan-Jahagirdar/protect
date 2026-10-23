@@ -195,16 +195,20 @@ def test_new_report_with_vulnerable_plugin_joins_open_incident(session: Session)
     assert new_case.score == 35  # active this time, so no -10
 
 
-def test_patch_is_noticed_but_not_yet_verified(session: Session) -> None:
+def test_patch_verifies_the_case_automatically(session: Session) -> None:
     site = _site(session, "http://127.0.0.1:8081")
     incident = _replay(session, "php2shell")
     assert incident is not None
     send(session, site, php="8.3.36")
     [case] = incident.cases
-    assert case.exposure is Exposure.VULNERABLE  # auto-verify arrives in step 9
-    assert _events(session, incident)[-1] == "match_now_safe"
-    send(session, site, php="8.3.37")  # another safe report: no duplicate event
-    assert _events(session, incident).count("match_now_safe") == 1
+    assert case.exposure is Exposure.VERIFIED
+    assert case.version_seen == "8.3.36"
+    assert case.fixed_version == "8.3.36"  # kept, so the page still says what the fix was
+    assert case.match_reasons == ["PHP 8.3.36 is outside the affected ranges"]
+    assert incident.status is IncidentStatus.MONITORING
+    assert _events(session, incident)[-2:] == ["verified", "all_sites_resolved"]
+    send(session, site, php="8.3.37")  # another safe report: nothing new
+    assert _events(session, incident).count("verified") == 1
 
 
 def test_human_decisions_are_never_overwritten(session: Session) -> None:
@@ -228,12 +232,15 @@ def test_downgrade_after_verify_reopens_case(session: Session) -> None:
     assert "case_reopened" in _events(session, incident)
 
 
-def test_uninstalled_component_is_noted(session: Session) -> None:
+def test_uninstalling_the_component_verifies_the_case(session: Session) -> None:
     site = _site(session, "http://127.0.0.1:8081")
     incident = _replay(session, "drill-plugin")
     assert incident is not None
     send(session, site, plugins=[])
-    assert _events(session, incident)[-1] == "component_removed"
+    [case] = incident.cases
+    assert case.exposure is Exposure.VERIFIED
+    assert case.match_reasons == ["wp-plugin:hello-dolly is no longer installed"]
+    assert incident.status is IncidentStatus.MONITORING
 
 
 # --- Advisory data -------------------------------------------------------------------

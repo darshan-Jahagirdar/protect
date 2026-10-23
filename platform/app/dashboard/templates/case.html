@@ -11,7 +11,15 @@
   <section class="tile"><div class="tile-value">{{ case.version_seen or "?" }}</div><div class="tile-label">Version seen</div></section>
   <section class="tile"><div class="tile-value">{% if case.unsupported_branch %}upgrade branch{% else %}{{ case.fixed_version or "none yet" }}{% endif %}</div><div class="tile-label">Fix</div></section>
   <section class="tile"><div class="tile-value">{{ case.score }} <span class="badge badge-{{ case.priority.value | lower }}">{{ case.priority.value }}</span></div><div class="tile-label">Score</div></section>
+  <section class="tile"><div class="tile-value small-value">{{ case.client_notice.value | replace("_", " ") }}</div><div class="tile-label">Client notice</div></section>
 </div>
+
+{% if fix_not_visible %}
+<div class="flash flash-error">The fix was claimed over 2 hours ago but isn't showing in this site's reports yet. Check that PHP was switched for this site, that the server or PHP-FPM was restarted, and that the site is still reporting (Report now in the plugin).</div>
+{% endif %}
+{% if case.exposure.value == "verified" %}
+<div class="flash">Verified. {{ case.match_reasons | first }}</div>
+{% endif %}
 
 <ul class="reasons-list">
   {% for reason in case.match_reasons + case.score_reasons %}<li>{{ reason }}</li>{% endfor %}
@@ -55,6 +63,17 @@
     <p class="muted small">Protect then waits for the site's next report to confirm it.</p>
     <input type="text" name="note" maxlength="1000" placeholder="What was done (optional)">
     <button class="button-primary" type="submit">Mark fix claimed</button>
+  </form>
+  {% endif %}
+
+  {% if case.exposure.value in ("vulnerable", "needs_check", "fix_claimed") %}
+  <form method="post" action="/cases/{{ case.id }}/action" class="card">
+    <input type="hidden" name="csrf_token" value="{{ viewer.csrf }}">
+    <input type="hidden" name="action" value="verify">
+    <h3>Verify by hand</h3>
+    <p class="muted small">Only when a report can't show the fix, e.g. the host confirmed a backported patch.</p>
+    <input type="text" name="note" maxlength="1000" required placeholder="Evidence (required)">
+    <button class="button-secondary" type="submit">Mark verified</button>
   </form>
   {% endif %}
 

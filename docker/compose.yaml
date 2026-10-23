@@ -71,6 +71,8 @@ services:
       PROTECT_ENV: dev
       PROTECT_DATABASE_URL: sqlite:////app/data/protect.sqlite
       PROTECT_BASE_URL: http://127.0.0.1:8000
+      # Signs dashboard sessions so restarts don't sign everyone out. Empty = random per start.
+      PROTECT_SECRET_KEY: ${PROTECT_SECRET_KEY:-}
       # Alert emails go to Mailpit (http://127.0.0.1:8025). Demo-only addresses.
       PROTECT_EMAIL_TRANSPORT: smtp
       PROTECT_SMTP_HOST: mailpit

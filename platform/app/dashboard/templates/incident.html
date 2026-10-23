@@ -30,6 +30,21 @@
   </section>
 </div>
 
+{% if incident.status.value == "monitoring" and viewer.user.role.value != "viewer" %}
+<form method="post" action="/incidents/{{ incident.id }}/close" class="card form-grid">
+  <input type="hidden" name="csrf_token" value="{{ viewer.csrf }}">
+  <h3>Every affected site is resolved</h3>
+  {% if notices_missing %}
+    <p class="small">{{ notices_missing }} client notice(s) not marked sent (tick "Approve and send the client notice" on each case). To close anyway, say why.</p>
+    <input type="text" name="note" maxlength="1000" placeholder="Why close without the notices">
+  {% else %}
+    <p class="small muted">All client notices are marked sent.</p>
+    <input type="text" name="note" maxlength="1000" placeholder="Note (optional)">
+  {% endif %}
+  <button class="button-primary" type="submit">Close incident</button>
+</form>
+{% endif %}
+
 <h2>Affected sites</h2>
 <div class="table-wrap">
 <table>

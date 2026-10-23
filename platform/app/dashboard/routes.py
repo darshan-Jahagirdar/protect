@@ -40,7 +40,7 @@ from app.services import cases as case_actions
 from app.services.advisories import fixture_names, load_fixture, upsert_advisory
 from app.services.alerting import acknowledge, is_acknowledged, summarize
 from app.services.enrollment import create_site, issue_code
-from app.services.incidents import apply_advisory, rematch_site
+from app.services.incidents import apply_advisory, fix_not_visible, rematch_site
 
 templates = Jinja2Templates(directory=Path(__file__).resolve().parent / "templates")
 router = APIRouter()
@@ -56,6 +56,7 @@ MESSAGES = {  # fixed texts only: nothing user-supplied is reflected from the UR
     "replayed_none": "Advisory replayed: no active site is affected.",
     "user_added": "Team member added.",
     "user_disabled": "Team member disabled.",
+    "closed": "Incident closed.",
 }
 
 
@@ -156,6 +157,11 @@ def overview(request: Request, viewer: ViewerDep, session: SessionDep) -> HTMLRe
             "active_sites": len(active),
             "stale": [s for s in active if _stale(s)],
             "suspicious": [s for s in active if s.suspicious],
+            "fixes_not_visible": sum(
+                1
+                for c in session.scalars(select(Case).where(Case.exposure == Exposure.FIX_CLAIMED))
+                if fix_not_visible(session, c)
+            ),
             "needs_review": session.scalar(
                 select(func.count())
                 .select_from(Advisory)
@@ -299,7 +305,12 @@ def incidents_page(request: Request, viewer: ViewerDep, session: SessionDep) -> 
 
 @router.get("/incidents/{incident_id}", response_class=HTMLResponse)
 def incident_page(request: Request, incident_id: str, viewer: ViewerDep, session: SessionDep):
-    incident = _get(session, Incident, incident_id)
+    return incident_view(request, session, _get(session, Incident, incident_id))
+
+
+def incident_view(
+    request: Request, session: Session, incident: Incident, error: str | None = None
+) -> HTMLResponse:
     events = session.scalars(
         select(Event).where(Event.incident_id == incident.id).order_by(Event.id)
     ).all()
@@ -313,8 +324,26 @@ def incident_page(request: Request, incident_id: str, viewer: ViewerDep, session
             "cases": sorted(incident.cases, key=lambda c: (-c.score, c.site_id)),
             "events": events,
             "users": {u.id: u.display_name for u in session.scalars(select(User))},
+            "notices_missing": case_actions.notices_missing(incident),
+            "error": error,
         },
+        status=400 if error else 200,
     )
+
+
+@router.post("/incidents/{incident_id}/close", response_class=HTMLResponse, dependencies=CSRF)
+async def incident_close(
+    request: Request, incident_id: str, viewer: ResponderDep, session: SessionDep
+):
+    incident = _get(session, Incident, incident_id)
+    form = await request.form()
+    try:
+        case_actions.close_incident(session, incident, viewer.user, str(form.get("note", "")))
+    except case_actions.CaseActionError as e:
+        session.rollback()
+        return incident_view(request, session, _get(session, Incident, incident_id), error=str(e))
+    session.commit()
+    return RedirectResponse(f"/incidents/{incident.id}?msg=closed", status_code=303)
 
 
 @router.post("/incidents/{incident_id}/ack", dependencies=CSRF)
@@ -344,6 +373,7 @@ def case_view(request: Request, session: Session, case: Case, error: str | None 
             "error": error,
             "users": {u.id: u.display_name for u in session.scalars(select(User))},
             "decisions": [Exposure.FALSE_POSITIVE, Exposure.ACCEPTED_RISK, Exposure.NOT_AFFECTED],
+            "fix_not_visible": fix_not_visible(session, case),
             "compromise_values": list(Compromise),
         },
         status=400 if error else 200,
@@ -364,6 +394,8 @@ async def case_action(request: Request, case_id: int, viewer: ResponderDep, sess
     try:
         if action == "claim_fix":
             case_actions.claim_fix(session, case, user, note)
+        elif action == "verify":
+            case_actions.verify_manually(session, case, user, note)
         elif action in {d.value for d in case_actions.DECISIONS}:
             case_actions.decide(session, case, user, Exposure(action), note)
         elif action == "undo":

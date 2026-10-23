@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import SecretStr, model_validator
+from pydantic import SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PLATFORM_DIR = Path(__file__).resolve().parent.parent
@@ -64,6 +64,12 @@ class Settings(BaseSettings):
     @property
     def backup_recipient_list(self) -> list[str]:
         return self._split(self.backup_recipients)
+
+    @field_validator("secret_key", mode="before")
+    @classmethod
+    def _empty_secret_is_none(cls, v: object) -> object:
+        # Compose passes "" when the variable is unset; an empty key must never sign anything.
+        return None if v in ("", None) else v
 
     @model_validator(mode="after")
     def _check_prod(self) -> "Settings":

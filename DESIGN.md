@@ -298,9 +298,15 @@ needs_check ──(team records host confirmation + note)──▶ verified (man
 any ──(team, with reason)──▶ false_positive | accepted_risk | not_affected
 ```
 
-**Who may change exposure:** the engine only moves cases between `vulnerable` and `needs_check`. It reopens `verified` or `not_affected` cases if the site becomes affected again, for example after a downgrade. It never overwrites a person's decision (`fix_claimed`, `false_positive`, `accepted_risk`).
+**Verification and closing (step 9):**
+- A report that shows the fix (or shows the component uninstalled) moves `vulnerable`, `needs_check`, `fix_claimed` and `accepted_risk` cases to **verified** automatically. `false_positive` and `not_affected` are left as they are.
+- **Verify by hand** (with an evidence note) covers fixes a report can't show, such as a host's backported patch.
+- **Fix claimed but not showing:** a case still `fix_claimed` 2 hours after the claim gets a `fix_not_visible` timeline note (once per claim, checked every minute) and an overview tile.
+- **Monitoring:** when every case is verified or decided, the incident moves to **monitoring** automatically, and back to **open** if a site regresses.
+- **Closing** is a person's action, available in monitoring. If a client notice isn't marked sent (by ticking the "client notice" checklist step), closing needs a written reason. A regression after closing opens a new incident.
+- **Plugin:** it also checks for a PHP change on every wp-cron run, so a patch is reported within minutes without anyone opening WP admin.
 
-When a report shows the component is now safe, or no longer installed, the case's timeline records `match_now_safe` or `component_removed`. Step 9 turns `match_now_safe` into automatic verification.
+**Who may change exposure:** the engine only moves cases between `vulnerable` and `needs_check`. It reopens `verified` or `not_affected` cases if the site becomes affected again, for example after a downgrade. It never overwrites a person's decision (`fix_claimed`, `false_positive`, `accepted_risk`).
 
 **When matching runs:**
 - each confirmed advisory is matched when it arrives (replay, manual entry, or a feed later)

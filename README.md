@@ -43,6 +43,14 @@ Then open http://127.0.0.1:8000 and pick your name. The demo sign-in exists only
 
 After that the site reports every hour, after any update, and whenever you click **Report now**.
 
+**Patch the demo site** (the "fix" in the demo story):
+
+```bash
+WP_PHP_IMAGE=php:8.3.36-apache docker compose -f docker/compose.yaml up -d --build wp-vuln
+```
+
+Within about two minutes the plugin notices the new PHP on its own cron run, reports, and the case turns **verified**. Running `docker compose ... up -d --build` without that override puts the site back on vulnerable 8.3.30. Protect then sees the regression on the next report, so that's also how you reset the demo.
+
 Stop it with `docker compose -f docker/compose.yaml down`. Add `-v` to also delete the demo data.
 
 This repository contains no exploit code. The demo proves detection and response, not exploitation.

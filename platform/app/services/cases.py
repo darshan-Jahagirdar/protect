@@ -11,17 +11,25 @@ from sqlalchemy.orm import Session
 
 from app.checklists.loader import ChecklistTemplate, RenderedItem, render, template_for
 from app.db import utcnow
-from app.enums import ChecklistItemKind, Compromise, Exposure, HostType
+from app.enums import (
+    ChecklistItemKind,
+    ClientNotice,
+    Compromise,
+    Exposure,
+    HostType,
+    IncidentStatus,
+)
 from app.models import (
     Advisory,
     Case,
     ChecklistItem,
     Event,
+    Incident,
     IncidentAdvisory,
     Site,
     User,
 )
-from app.services.incidents import DONE, apply_advisory
+from app.services.incidents import DONE, apply_advisory, refresh_incident_status
 
 DECISIONS = {Exposure.FALSE_POSITIVE, Exposure.ACCEPTED_RISK, Exposure.NOT_AFFECTED}
 OPEN = {Exposure.VULNERABLE, Exposure.NEEDS_CHECK}
@@ -86,6 +94,19 @@ def claim_fix(session: Session, case: Case, user: User, note: str | None = None)
         raise CaseActionError("Only an open case can be marked as fixed.")
     case.exposure = Exposure.FIX_CLAIMED
     _event(session, case, user, "fix_claimed", (note or "").strip()[:1000] or None)
+    session.flush()
+    _rematch(session, case)  # if the latest report already shows the fix, it verifies now
+
+
+def verify_manually(session: Session, case: Case, user: User, note: str | None) -> None:
+    """For fixes a report can't show, e.g. the host confirms a backported patch."""
+    if case.exposure not in OPEN | {Exposure.FIX_CLAIMED}:
+        raise CaseActionError("Only an open or fix-claimed case can be verified by hand.")
+    text = _required(note, "the evidence, e.g. the host's confirmation")
+    before = case.exposure
+    case.exposure = Exposure.VERIFIED
+    _event(session, case, user, "verified_manually", text, before=before.value)
+    refresh_incident_status(session, case.incident)
 
 
 def decide(session: Session, case: Case, user: User, decision: Exposure, note: str | None) -> None:
@@ -97,6 +118,7 @@ def decide(session: Session, case: Case, user: User, decision: Exposure, note: s
     before = case.exposure
     case.exposure = decision
     _event(session, case, user, "decision", text, decision=decision.value, before=before.value)
+    refresh_incident_status(session, case.incident)
 
 
 def undo_decision(session: Session, case: Case, user: User) -> None:
@@ -227,10 +249,50 @@ def tick(
         row.done_by, row.done_at, row.note = user.id, utcnow(), text
     else:
         row.done_by, row.done_at = None, None
+    if item_key == "client_notice":  # the checklist step is how the team records it
+        case.client_notice = ClientNotice.SENT if done else ClientNotice.NOT_NEEDED
     _event(
         session,
         case,
         user,
         "checklist_done" if done else "checklist_undone",
         f"{item_key}: {text}" if text else item_key,
+    )
+
+
+# --- Closing an incident --------------------------------------------------------------------
+
+# Cases where the client was never at risk, so no notice is expected.
+_NO_NOTICE_NEEDED = {Exposure.FALSE_POSITIVE, Exposure.NOT_AFFECTED}
+
+
+def notices_missing(incident: Incident) -> int:
+    return sum(
+        1
+        for c in incident.cases
+        if c.exposure not in _NO_NOTICE_NEEDED and c.client_notice is not ClientNotice.SENT
+    )
+
+
+def close_incident(session: Session, incident: Incident, user: User, note: str | None) -> None:
+    """A person closes it once every site is resolved; notices missing need a reason."""
+    if incident.status is not IncidentStatus.MONITORING:
+        raise CaseActionError("An incident can be closed once every affected site is resolved.")
+    missing = notices_missing(incident)
+    text = (note or "").strip()[:1000] or None
+    if missing and not text:
+        raise CaseActionError(
+            f"{missing} client notice(s) not marked sent. "
+            "Add a note saying why you're closing anyway."
+        )
+    incident.status = IncidentStatus.CLOSED
+    incident.closed_at = utcnow()
+    session.add(
+        Event(
+            incident_id=incident.id,
+            actor_user_id=user.id,
+            type="incident_closed",
+            note=text,
+            data={"notices_missing": missing},
+        )
     )

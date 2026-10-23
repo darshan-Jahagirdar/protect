@@ -15,6 +15,17 @@ class Protect_Reporter_Scheduler {
 		add_action( PROTECT_REPORTER_CRON_HOOK . '_once', array( 'Protect_Reporter_Sender', 'send_report' ) );
 		add_action( 'upgrader_process_complete', array( __CLASS__, 'soon' ) );
 		add_action( 'admin_init', array( __CLASS__, 'check_php_changed' ) );
+		add_action( 'init', array( __CLASS__, 'check_php_changed_on_cron' ) );
+	}
+
+	/**
+	 * Also notice a PHP upgrade on cron runs, so a patched site reports within a few minutes
+	 * even if nobody opens WP admin. Cheap: it only runs on wp-cron requests.
+	 */
+	public static function check_php_changed_on_cron() {
+		if ( wp_doing_cron() ) {
+			self::check_php_changed();
+		}
 	}
 
 	public static function activate() {

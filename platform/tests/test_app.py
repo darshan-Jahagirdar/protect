@@ -77,3 +77,9 @@ def test_prod_hides_api_docs(db_url: str) -> None:
     assert c.get("/docs").status_code == 404
     assert c.get("/openapi.json").status_code == 404
     assert "strict-transport-security" in c.get("/healthz").headers
+
+
+def test_empty_secret_key_counts_as_unset() -> None:
+    assert Settings(env="test", secret_key="").secret_key is None
+    with pytest.raises(ValidationError):
+        Settings(env="prod", base_url="https://p.example", secret_key="")

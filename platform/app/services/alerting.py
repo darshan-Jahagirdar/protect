@@ -18,6 +18,7 @@ from app.alerts.messages import IncidentSummary
 from app.db import utcnow
 from app.enums import AlertChannel, Exposure, IncidentStatus, Priority
 from app.models import Advisory, Alert, Event, Incident, IncidentAdvisory
+from app.services.incidents import flag_unconfirmed_fixes
 from app.settings import Settings
 
 log = logging.getLogger("protect.alerts")
@@ -159,6 +160,8 @@ def escalate_unacknowledged(
         if not overdue:
             continue
         summary = summarize(session, incident)
+        if summary.affected == 0:
+            continue  # every site was fixed before anyone acknowledged: nothing to escalate
         backup = settings.backup_recipient_list
         to, group = (backup, "backup") if backup else (settings.alert_recipient_list, "responders")
         text = messages.unacknowledged(summary, settings.ack_timeout_minutes, settings.base_url)
@@ -220,6 +223,7 @@ def run_alert_cycle(
     with session_factory() as session:
         send_due_alerts(session, mailer, settings)
         escalate_unacknowledged(session, mailer, settings)
+        flag_unconfirmed_fixes(session)
         session.commit()
 
 

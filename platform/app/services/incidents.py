@@ -7,10 +7,12 @@ People's decisions (fix claimed, false positive, accepted risk) are never overwr
 """
 
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.db import utcnow
 from app.engine.catalogue import ComponentKind, kind_of
 from app.engine.matcher import AffectRule, Bucket, ComponentFacts, MatchResult, OsFacts
 from app.engine.matcher import match_component as engine_match
@@ -34,6 +36,16 @@ ENGINE_OWNED = {Exposure.VULNERABLE, Exposure.NEEDS_CHECK}
 DONE = {Exposure.VERIFIED, Exposure.NOT_AFFECTED}
 # A person decided; keep it, only refresh the facts.
 HUMAN_DECISION = {Exposure.FIX_CLAIMED, Exposure.FALSE_POSITIVE, Exposure.ACCEPTED_RISK}
+# Cases that become VERIFIED on their own when a report shows the fix (or the component is
+# gone). false_positive and not_affected stay as they are: nothing was ever wrong.
+AUTO_VERIFY = {
+    Exposure.VULNERABLE,
+    Exposure.NEEDS_CHECK,
+    Exposure.FIX_CLAIMED,
+    Exposure.ACCEPTED_RISK,
+}
+# Nothing left to do on the site for these (the incident can move to monitoring).
+RESOLVED = DONE | {Exposure.FALSE_POSITIVE, Exposure.ACCEPTED_RISK}
 
 _BUCKET_TO_EXPOSURE = {
     Bucket.VULNERABLE: Exposure.VULNERABLE,
@@ -157,12 +169,8 @@ def _apply_hit(session: Session, incident: Incident, advisory: Advisory, hit: Hi
     r = hit.result
 
     if r.bucket is Bucket.SAFE:
-        if case is not None and case.exposure not in DONE:
-            if _last_event_type(session, case) != "match_now_safe":
-                # Step 9 turns this into automatic verification.
-                _event(
-                    session, "match_now_safe", incident, case, note=r.reasons[0], version=r.version
-                )
+        if case is not None and case.exposure in AUTO_VERIFY:
+            _verify(session, incident, case, note=r.reasons[0], version=r.version)
         return
 
     exposure = _BUCKET_TO_EXPOSURE[r.bucket]
@@ -194,15 +202,15 @@ def _apply_hit(session: Session, incident: Incident, advisory: Advisory, hit: Hi
         return
 
     before = (case.exposure, case.score, case.version_seen)
-    if case.exposure in ENGINE_OWNED:
+    reopened = case.exposure in DONE
+    if case.exposure in ENGINE_OWNED or reopened:
         case.exposure = exposure
-    elif case.exposure in DONE:
-        case.exposure = exposure
-        _event(session, "case_reopened", incident, case, note=r.reasons[0], version=r.version)
     # HUMAN_DECISION states are kept as they are.
     case.priority, case.score, case.score_reasons = priority, points, reasons
     _fill_facts(case, r)
-    if (case.exposure, case.score, case.version_seen) != before:
+    if reopened:
+        _event(session, "case_reopened", incident, case, note=r.reasons[0], version=r.version)
+    elif (case.exposure, case.score, case.version_seen) != before:
         _event(
             session,
             "case_updated",
@@ -222,26 +230,53 @@ def _fill_facts(case: Case, r: MatchResult) -> None:
     case.match_reasons = list(r.reasons)
 
 
-def _last_event_type(session: Session, case: Case) -> str | None:
-    return session.scalar(
-        select(Event.type).where(Event.case_id == case.id).order_by(Event.id.desc())
-    )
+def _verify(
+    session: Session, incident: Incident, case: Case, note: str, version: str | None
+) -> None:
+    """The site's own report shows the fix (or the component is gone): verified."""
+    before = case.exposure
+    case.exposure = Exposure.VERIFIED
+    case.version_seen = version
+    case.match_reasons = [note]
+    _event(session, "verified", incident, case, note=note, version=version, before=before.value)
 
 
-def _note_removed_components(session: Session, incident: Incident, sites: list[Site]) -> None:
-    """A case whose component was uninstalled since. Step 9 decides what that means."""
+def _verify_removed_components(session: Session, incident: Incident, sites: list[Site]) -> None:
+    """Uninstalling the affected plugin or theme is a valid fix: verify those cases."""
     session.flush()
     by_id = {s.id: {c.component_key for c in s.components} for s in sites}
     for case in incident.cases:
         if case.site_id in by_id and case.component_key not in by_id[case.site_id]:
-            if case.exposure not in DONE and _last_event_type(session, case) != "component_removed":
-                _event(
+            if case.exposure in AUTO_VERIFY:
+                _verify(
                     session,
-                    "component_removed",
                     incident,
                     case,
                     note=f"{case.component_key} is no longer installed",
+                    version=None,
                 )
+
+
+def refresh_incident_status(session: Session, incident: Incident) -> None:
+    """open -> monitoring when every site is resolved; back to open if one isn't any more.
+
+    Closing is a person's decision (after client notices), never automatic.
+    """
+    session.flush()
+    if incident.status is IncidentStatus.CLOSED or not incident.cases:
+        return
+    resolved = all(c.exposure in RESOLVED for c in incident.cases)
+    if resolved and incident.status is IncidentStatus.OPEN:
+        incident.status = IncidentStatus.MONITORING
+        _event(
+            session,
+            "all_sites_resolved",
+            incident,
+            note="every affected site is verified or decided",
+        )
+    elif not resolved and incident.status is IncidentStatus.MONITORING:
+        incident.status = IncidentStatus.OPEN
+        _event(session, "incident_reopened", incident, note="a site is affected again")
 
 
 def _refresh_incident_priority(session: Session, incident: Incident) -> None:
@@ -274,8 +309,9 @@ def apply_advisory(
 
     for hit in hits:
         _apply_hit(session, incident, advisory, hit)
-    _note_removed_components(session, incident, sites)
+    _verify_removed_components(session, incident, sites)
     _refresh_incident_priority(session, incident)
+    refresh_incident_status(session, incident)
     session.flush()
     return incident
 
@@ -302,3 +338,65 @@ def rematch_site(session: Session, site: Site) -> list[Incident]:
             if incident is not None:
                 touched.append(incident)
     return touched
+
+
+FIX_VISIBLE_WITHIN = timedelta(hours=2)
+
+
+def flag_unconfirmed_fixes(session: Session, now: datetime | None = None) -> int:
+    """Fix claimed 2+ hours ago but the case still isn't verified: say so once (DESIGN §4.7).
+
+    Usually means the host hasn't switched PHP yet, the server wasn't restarted, or the site
+    has stopped reporting. Returns how many cases were flagged.
+    """
+    now = now or utcnow()
+    flagged = 0
+    for case in session.scalars(select(Case).where(Case.exposure == Exposure.FIX_CLAIMED)):
+        claimed_at = session.scalar(
+            select(Event.at)
+            .where(Event.case_id == case.id, Event.type == "fix_claimed")
+            .order_by(Event.id.desc())
+        )
+        if claimed_at is None or now - claimed_at < FIX_VISIBLE_WITHIN:
+            continue
+        already = session.scalar(
+            select(Event.id).where(
+                Event.case_id == case.id, Event.type == "fix_not_visible", Event.at >= claimed_at
+            )
+        )
+        if already:
+            continue
+        site = session.get(Site, case.site_id)
+        if site and site.last_report_at and site.last_report_at > claimed_at:
+            note = f"reports since the fix was claimed still show {case.version_seen}"
+        else:
+            note = "no report from the site since the fix was claimed"
+        session.add(
+            Event(
+                incident_id=case.incident_id,
+                case_id=case.id,
+                type="fix_not_visible",
+                at=now,
+                note=note,
+            )
+        )
+        flagged += 1
+    session.flush()
+    return flagged
+
+
+def fix_not_visible(session: Session, case: Case) -> bool:
+    """Is this fix-claimed case currently flagged as not visible?"""
+    if case.exposure is not Exposure.FIX_CLAIMED:
+        return False
+    return (
+        _last_event_type_in(session, case, ("fix_claimed", "fix_not_visible")) == "fix_not_visible"
+    )
+
+
+def _last_event_type_in(session: Session, case: Case, types: tuple[str, ...]) -> str | None:
+    return session.scalar(
+        select(Event.type)
+        .where(Event.case_id == case.id, Event.type.in_(types))
+        .order_by(Event.id.desc())
+    )

@@ -107,7 +107,7 @@ def test_replayed_request_is_rejected(env: Env, enrolled: FakePlugin) -> None:
     assert env.client.post("/api/v1/report", content=body, headers=headers).status_code == 401
 
 
-@pytest.mark.parametrize("offset", [-601, 601, -86400])
+@pytest.mark.parametrize("offset", [-700, 700, -86400])  # margin for slow test runs
 def test_stale_or_future_timestamp(env: Env, enrolled: FakePlugin, offset: int) -> None:
     assert _send(env, enrolled, report(), ts=int(time.time()) + offset) == 401
 

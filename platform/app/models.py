@@ -135,6 +135,9 @@ class SiteComponent(Base):
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     first_seen: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
     last_seen: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    # When the current version_raw was first reported: an older public view of the site
+    # can't be compared with it (DESIGN.md §4.9).
+    version_since: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
     site: Mapped[Site] = relationship(back_populates="components")
 

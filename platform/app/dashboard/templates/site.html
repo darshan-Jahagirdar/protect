@@ -32,6 +32,7 @@
 <div class="flash flash-error"><strong>Report and public view disagree:</strong> {{ disagrees }}. Either the plugin's report is wrong (a hacked site can lie) or a cache or proxy is answering with old headers. Check the server directly.</div>
 {% endif %}
 {% if tls_warning %}<div class="flash flash-error">{{ tls_warning | capitalize }}.</div>{% endif %}
+{% if public_outdated %}<p class="muted small">Out of date: the site reported a PHP change after this view, so it isn't compared with the report. The observer looks again within a few minutes.</p>{% endif %}
 {% if observation %}
 <div class="table-wrap">
 <table>

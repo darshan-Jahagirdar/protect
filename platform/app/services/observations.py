@@ -36,18 +36,34 @@ def public_php_version(obs: Observation | None) -> str | None:
     return m.group(1) if m else None
 
 
-def reported_php_version(session: Session, site: Site) -> str | None:
-    comp = session.scalar(
+def _php_component(session: Session, site: Site) -> SiteComponent | None:
+    return session.scalar(
         select(SiteComponent).where(
             SiteComponent.site_id == site.id, SiteComponent.component_key == "php"
         )
     )
+
+
+def reported_php_version(session: Session, site: Site) -> str | None:
+    comp = _php_component(session, site)
     php = parse_php(comp.version_raw) if comp else None
     return f"{php.major}.{php.minor}.{php.release}" if php else None
 
 
+def public_view_outdated(session: Session, site: Site, obs: Observation | None) -> bool:
+    """True when the site reported its current PHP version after this public view was taken.
+
+    The view shows the server as it was before the change, so comparing the two would flag
+    every patch (and every rollback) as a disagreement until the observer looks again.
+    """
+    comp = _php_component(session, site)
+    return obs is not None and comp is not None and obs.at < comp.version_since
+
+
 def disagreement(session: Session, site: Site, obs: Observation | None) -> str | None:
     """A plain-English description when the public view and the report disagree."""
+    if public_view_outdated(session, site, obs):
+        return None
     public, reported = public_php_version(obs), reported_php_version(session, site)
     if public and reported and public != reported:
         return f"the web server announces PHP {public}, but the plugin reports PHP {reported}"
@@ -147,7 +163,8 @@ def observe_due(
     now: datetime | None = None,
     observe_fn: ObserveFn = observe,
 ) -> int:
-    """Scheduler job: daily per site, every 30 minutes while a site is in a P1/P2 incident."""
+    """Scheduler job: daily per site, every 30 minutes while a site is in a P1/P2 incident,
+    and on the next run after a site reports a PHP change (so the cross-check catches up)."""
     now = now or utcnow()
     urgent = _urgent_site_ids(session)
     done = 0
@@ -158,7 +175,7 @@ def observe_due(
             if site.id in urgent
             else timedelta(hours=settings.observer_interval_hours)
         )
-        if last is None or now - last.at >= every:
+        if last is None or now - last.at >= every or public_view_outdated(session, site, last):
             observe_site(session, site, settings, now, observe_fn)
             done += 1
     session.execute(delete(Observation).where(Observation.at < now - KEEP_FOR))

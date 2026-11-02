@@ -133,6 +133,8 @@ def _rebuild_inventory(
         if row is None:
             row = SiteComponent(site_id=site.id, component_key=comp.key, first_seen=now)
             site.components.append(row)
+        if row.version_since is None or row.version_raw != comp.version_raw:
+            row.version_since = now
         row.version_raw = comp.version_raw
         row.version_parsed = {"normalized": extract_version(comp.key, comp.version_raw)}
         row.distro = distro

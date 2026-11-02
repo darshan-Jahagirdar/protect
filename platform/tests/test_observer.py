@@ -16,14 +16,16 @@ from app.services.cases import checklist
 from app.services.observations import (
     disagreement,
     edge_status,
+    latest_observation,
     observe_due,
     observe_site,
     public_php_version,
+    public_view_outdated,
     tls_warning,
 )
 from app.settings import Settings
 from tests.dashboard_helpers import make_dash
-from tests.test_incidents import _replay, _site
+from tests.test_incidents import _replay, _site, send
 
 PUBLIC = lambda host: ["93.184.216.34"]  # noqa: E731  (a public address)
 
@@ -245,6 +247,54 @@ def test_disagreement_is_noted_on_open_cases_once(session: Session) -> None:
     assert session.query(Event).filter_by(type="public_view_disagrees").count() == 1
 
 
+@pytest.mark.parametrize(("before", "after"), [("8.3.30", "8.3.36"), ("8.3.36", "8.3.30")])
+def test_view_older_than_a_php_change_is_not_a_disagreement(
+    session: Session, before: str, after: str
+) -> None:
+    # Found in the step 13 rehearsal: after a patch (or a rollback) the last public view
+    # still showed the old PHP, so the dashboard claimed a disagreement for up to a day.
+    site = _site(session, "http://127.0.0.1:8081", php=before)
+    _replay(session, "php2shell")
+    hour_ago = utcnow() - timedelta(hours=1)
+    old = observe_site(session, site, Settings(env="test"), hour_ago, _fake(f"PHP/{before}"))
+    send(session, site, php=after)
+    assert public_view_outdated(session, site, old)
+    assert disagreement(session, site, old) is None
+
+
+def test_a_view_taken_after_the_change_can_still_disagree(session: Session) -> None:
+    site = _site(session, "http://127.0.0.1:8081", php="8.3.30")
+    hour_ago = utcnow() - timedelta(hours=1)
+    observe_site(session, site, Settings(env="test"), hour_ago, _fake("PHP/8.3.30"))
+    send(session, site, php="8.3.36")  # the plugin says it was patched...
+    fresh = observe_site(session, site, Settings(env="test"), observe_fn=_fake("PHP/8.3.30"))
+    assert not public_view_outdated(session, site, fresh)  # ...but the server still says 8.3.30
+    assert disagreement(session, site, fresh) == (
+        "the web server announces PHP 8.3.30, but the plugin reports PHP 8.3.36"
+    )
+
+
+def test_a_php_change_makes_the_site_due_for_a_view(session: Session) -> None:
+    site = _site(session, "http://127.0.0.1:8081", php="8.3.30")
+    fake, s = _fake("PHP/8.3.36"), Settings(env="test")
+    assert observe_due(session, s, observe_fn=fake) == 1  # first view, after the first report
+    assert observe_due(session, s, observe_fn=fake) == 0  # daily: not due yet
+    send(session, site, php="8.3.36")
+    assert observe_due(session, s, observe_fn=fake) == 1  # the next run looks again
+    assert observe_due(session, s, observe_fn=fake) == 0  # once is enough
+    assert disagreement(session, site, latest_observation(session, site)) is None
+
+
+def test_version_since_moves_only_when_the_version_changes(session: Session) -> None:
+    site = _site(session, "http://127.0.0.1:8081", php="8.3.30")
+    [php] = [c for c in site.components if c.component_key == "php"]
+    since = php.version_since
+    send(session, site, php="8.3.30", plugins=[])  # a changed report, same PHP
+    assert php.version_since == since
+    send(session, site, php="8.3.36", plugins=[])
+    assert php.version_since > since
+
+
 def test_hidden_version_is_not_a_disagreement(session: Session) -> None:
     site = _site(session, "http://127.0.0.1:8081")
     obs = observe_site(session, site, Settings(env="test"), observe_fn=_fake(None))
@@ -333,4 +383,33 @@ def test_site_page_observe_now_and_disagreement_banner(db_url: str) -> None:
     page = dash.client.get(f"/sites/{site_id}").text
     assert "PHP/8.3.36" in page and "Report and public view disagree" in page
     assert "Report and public view disagree" in dash.client.get(f"/cases/{case_id}").text
-    assert "Report vs public view disagree" in dash.client.get("/").text
+    assert _disagree_tile(dash.client.get("/").text) == 1
+
+
+def _disagree_tile(overview: str) -> int:
+    """The overview tile's count (its label is always shown)."""
+    m = re.search(
+        r'<div class="tile-value">(\d+)</div><div class="tile-label">Report vs public view',
+        overview,
+    )
+    assert m, "disagreement tile not found"
+    return int(m.group(1))
+
+
+def test_pages_show_no_banner_for_an_out_of_date_view(db_url: str) -> None:
+    dash = make_dash(db_url)
+    with dash.session() as s:
+        site = _site(s, "http://127.0.0.1:8081", php="8.3.30")
+        incident = _replay(s, "php2shell")
+        hour_ago = utcnow() - timedelta(hours=1)
+        observe_site(s, site, Settings(env="test"), hour_ago, _fake("PHP/8.3.30"))
+        send(s, site, php="8.3.36")  # patched after the view was taken
+        s.commit()
+        site_id, case_id = site.id, incident.cases[0].id  # type: ignore[union-attr]
+
+    dash.login(UserRole.VIEWER)
+    page = dash.client.get(f"/sites/{site_id}").text
+    assert "Out of date: the site reported a PHP change after this view" in page
+    assert "Report and public view disagree" not in page
+    assert "Report and public view disagree" not in dash.client.get(f"/cases/{case_id}").text
+    assert _disagree_tile(dash.client.get("/").text) == 0

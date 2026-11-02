@@ -49,6 +49,7 @@ from app.services.observations import (
     latest_observation,
     observe_site,
     public_php_version,
+    public_view_outdated,
     tls_warning,
 )
 
@@ -269,6 +270,7 @@ def site_view(
             "findings": latest_findings(session, site),
             "observation": (obs := latest_observation(session, site)),
             "disagrees": disagreement(session, site, obs),
+            "public_outdated": public_view_outdated(session, site, obs),
             "tls_warning": tls_warning(obs),
             "public_php": public_php_version(obs),
         },

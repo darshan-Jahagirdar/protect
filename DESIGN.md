@@ -357,8 +357,8 @@ This is a second opinion that a hacked plugin can't fake.
   - Redirects are followed by hand, at most 3, and each hop must be http(s).
   - In prod, each hop must resolve to a public IP. Loopback, private, link-local, CGNAT and cloud metadata addresses are blocked, so a hacked site can't use a redirect to make Protect probe its own network.
   - The response body is never read; tests prove it with a tripwire stream. The only method used is GET.
-- **Schedule:** a 5-minute scheduler job observes due sites (daily, or every 30 minutes while the site is in an open P1/P2 incident). Observations older than 90 days are pruned. "View the public homepage now" on the site page does one on demand (responder+).
-- **Cross-check** (`platform/app/services/observations.py`): `X-Powered-By: PHP/x.y.z` is compared with the plugin's reported PHP. A new disagreement is written to the timeline of the site's open cases (`public_view_disagrees`) and shown as a banner on the site and case pages and as an overview tile. A hidden version (no header) is never a disagreement.
+- **Schedule:** a 5-minute scheduler job observes due sites: daily, every 30 minutes while the site is in an open P1/P2 incident, and on the next run after the site reports a PHP change. Observations older than 90 days are pruned. "View the public homepage now" on the site page does one on demand (responder+).
+- **Cross-check** (`platform/app/services/observations.py`): `X-Powered-By: PHP/x.y.z` is compared with the plugin's reported PHP. A new disagreement is written to the timeline of the site's open cases (`public_view_disagrees`) and shown as a banner on the site and case pages and as an overview tile. A hidden version (no header) is never a disagreement. Nor is a view taken **before** the site reported its current PHP version (`site_components.version_since`): it shows the server as it was before a patch or rollback, so the site page marks it "out of date" until the observer looks again, within about 5 minutes. (Found in the step 13 rehearsal: without this, every patch showed a false disagreement for up to a day.)
 - **Checklists:** the "edge protection" step now says what the observer saw ("sees this site behind Cloudflare" / "doesn't see Cloudflare" / "hasn't checked yet").
 
 ### 4.10 AI module
@@ -538,7 +538,7 @@ The production database is SQLite (WAL mode), accessed through SQLAlchemy 2 with
 | `sites` | id, business_name, url, host_type (`managed-wp`/`cpanel`/`vps`/`unknown`), host_name, server_group, risk_tags (json), mu_plugin_allowlist (json), status (`pending`/`active`/`removed`), key_id, public_key, enrolled_at, last_report_at, last_report_id, suspicious (bool), created_at |
 | `enrollment_codes` | code_hash, site_id, expires_at, used_at |
 | `reports` | id, site_id, received_at, content_hash, schema, plugin_version, payload (json), flags (json) |
-| `site_components` | site_id, component_key, version_raw, version_parsed (json), distro, active, first_seen, last_seen (the current inventory, rebuilt from the latest report) |
+| `site_components` | site_id, component_key, version_raw, version_parsed (json), distro, active, first_seen, last_seen, version_since (when the current version was first reported) (the current inventory, rebuilt from the latest report) |
 | `nonces` | key_id, nonce, seen_at (pruned after 15 min) |
 | `observations` | id, site_id, at, http_status, server_header, powered_by, behind_cloudflare, tls_expires_at, error |
 | `advisories` | id, aliases (json: CVE, GHSA, Wordfence id…), source, source_url, title, summary_text, cvss_score, cvss_vector, network_unauthenticated, kev, exploited, published_at, review_status (`confirmed`/`needs_review`/`rejected`), drill, created_at |

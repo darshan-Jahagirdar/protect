@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Set up sign-in · Protect{% endblock %}
 {% block content %}
+<div class="auth">
 {% if invalid %}
 <h1>This setup link doesn't work</h1>
 <p>It may have been used already, or it's more than a day old. Ask an admin for a new one.</p>
@@ -26,4 +27,5 @@
   <button class="button-primary" type="submit">Finish setup</button>
 </form>
 {% endif %}
+</div>
 {% endblock %}

@@ -3,23 +3,36 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
   <title>{% block title %}Protect{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}?v={{ css_version }}">
 </head>
 <body>
+  {% set path = request.url.path %}
   <header class="topbar">
-    <a class="brand" href="/">Protect</a>
+    <a class="brand" href="/">
+      <svg class="brand-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 2.5 4 5.5v6c0 4.6 3.3 8.6 8 10 4.7-1.4 8-5.4 8-10v-6l-8-3Z"/>
+        <path d="M12 7v4l3 2M12 11l-3 2v3" stroke-opacity=".7"/>
+        <circle cx="12" cy="7" r="1.1" fill="currentColor" stroke="none"/>
+        <circle cx="15" cy="13" r="1.1" fill="currentColor" stroke="none"/>
+        <circle cx="9" cy="16" r="1.1" fill="currentColor" stroke="none"/>
+      </svg>
+      <span class="brand-name">Protect</span>
+      <span class="brand-tag">TransFunnel</span>
+    </a>
     {% if viewer %}
-    <nav class="nav">
-      <a href="/">Overview</a>
-      <a href="/incidents">Incidents</a>
-      <a href="/sites">Sites</a>
-      <a href="/advisories">Advisories</a>
-      {% if viewer.user.role.value == "admin" %}<a href="/users">Team</a>{% endif %}
+    <nav class="nav" aria-label="Main">
+      <a href="/" {% if path == "/" %}aria-current="page"{% endif %}>Overview</a>
+      <a href="/incidents" {% if path.startswith("/incidents") or path.startswith("/cases") %}aria-current="page"{% endif %}>Incidents</a>
+      <a href="/sites" {% if path.startswith("/sites") %}aria-current="page"{% endif %}>Sites</a>
+      <a href="/advisories" {% if path.startswith("/advisories") %}aria-current="page"{% endif %}>Advisories</a>
+      {% if viewer.user.role.value == "admin" %}<a href="/users" {% if path.startswith("/users") %}aria-current="page"{% endif %}>Team</a>{% endif %}
     </nav>
     <form class="whoami" method="post" action="/logout">
       <input type="hidden" name="csrf_token" value="{{ viewer.csrf }}">
-      <span class="muted">{{ viewer.user.display_name }} · {{ viewer.user.role.value }}</span>
+      <span>{{ viewer.user.display_name }}</span>
+      <span class="role">{{ viewer.user.role.value }}</span>
       <button class="link-button" type="submit">Sign out</button>
     </form>
     {% endif %}

@@ -204,4 +204,4 @@ def test_dashboard_shows_fix_not_visible(db_url: str) -> None:
         flag_unconfirmed_fixes(s, now=utcnow() + timedelta(hours=3))
         s.commit()
     assert "isn't showing in this site's reports" in dash.client.get(f"/cases/{case_id}").text
-    assert "Fixes not showing (2h+)" in dash.client.get("/").text
+    assert "1 fix claimed but not showing yet" in dash.client.get("/").text

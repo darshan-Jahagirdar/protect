@@ -4,7 +4,9 @@ Every page needs a signed-in team member. Every form post carries a CSRF token a
 from our own site. Roles: viewer (read), responder (act on incidents), admin (sites, users).
 """
 
-from datetime import timedelta
+import hashlib
+from dataclasses import dataclass
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -75,6 +77,27 @@ from app.services.observations import (
 from app.settings import is_local_host
 
 templates = Jinja2Templates(directory=Path(__file__).resolve().parent / "templates")
+
+
+def _ago(when: datetime | None) -> str:
+    """'12 min ago', '5 h ago', '3 days ago' (UTC times from the database)."""
+    if when is None:
+        return "never"
+    seconds = max(0, int((utcnow() - when).total_seconds()))
+    if seconds < 90:
+        return "just now"
+    if seconds < 3600:
+        return f"{seconds // 60} min ago"
+    if seconds < 48 * 3600:
+        return f"{seconds // 3600} h ago"
+    return f"{seconds // 86400} days ago"
+
+
+templates.env.filters["ago"] = _ago
+# Changes whenever style.css changes, so browsers fetch the new file after a deploy.
+templates.env.globals["css_version"] = hashlib.sha256(
+    (Path(__file__).resolve().parent / "static" / "style.css").read_bytes()
+).hexdigest()[:10]
 router = APIRouter()
 
 SessionDep = Annotated[Session, Depends(get_session)]
@@ -347,6 +370,67 @@ def _stale(site: Site) -> bool:
     return site.last_report_at is None or utcnow() - site.last_report_at > STALE_AFTER
 
 
+@dataclass(frozen=True)
+class SiteHealth:
+    """One card on the overview's site grid: a colour (ok / warn / bad / idle) and why."""
+
+    site: Site
+    state: str
+    label: str
+    href: str
+
+
+def _silent_for(site: Site) -> str:
+    if site.last_report_at is None:
+        return "No report yet"
+    hours = int((utcnow() - site.last_report_at).total_seconds() // 3600)
+    return f"Silent for {hours}h" if hours < 48 else f"Silent for {hours // 24} days"
+
+
+def _site_health(
+    session: Session, sites: list[Site], warning: set[int], disagree: set[int]
+) -> list[SiteHealth]:
+    """Worst thing first: an open fix, then warning signs, then silence or odd reports."""
+    open_cases: dict[int, list[tuple[Exposure, Priority, bool]]] = {}
+    for site_id, exposure, priority, drill in session.execute(
+        select(Case.site_id, Case.exposure, Incident.priority, Incident.drill)
+        .join(Incident)
+        .where(
+            Incident.status != IncidentStatus.CLOSED,
+            Case.exposure.in_([Exposure.VULNERABLE, Exposure.NEEDS_CHECK, Exposure.FIX_CLAIMED]),
+        )
+    ):
+        open_cases.setdefault(site_id, []).append((exposure, priority, drill))
+
+    health = []
+    for site in sites:
+        href = f"/sites/{site.id}"
+        cases = open_cases.get(site.id, [])
+        real = [c for c in cases if not c[2]]
+        if site.status == SiteStatus.PENDING:
+            item = SiteHealth(site, "idle", "Not connected yet", href)
+        elif any(e == Exposure.VULNERABLE and p in (Priority.P1, Priority.P2) for e, p, _ in real):
+            item = SiteHealth(site, "bad", "Needs a fix now", href)
+        elif site.id in warning:
+            item = SiteHealth(site, "bad", "Warning signs in files", href + "#file-checks")
+        elif site.id in disagree:
+            item = SiteHealth(site, "bad", "Report and public view disagree", href + "#public-view")
+        elif _stale(site):
+            item = SiteHealth(site, "warn", _silent_for(site), href)
+        elif site.suspicious:
+            item = SiteHealth(site, "warn", "Sent an odd report", href)
+        elif real:
+            fixing = all(e == Exposure.FIX_CLAIMED for e, _, _ in real)
+            item = SiteHealth(site, "warn", "Fix being checked" if fixing else "Needs a fix", href)
+        elif cases:
+            item = SiteHealth(site, "warn", "[DRILL] Practice fix open", href)
+        else:
+            item = SiteHealth(site, "ok", "All good", href)
+        health.append(item)
+    order = {"bad": 0, "warn": 1, "idle": 2, "ok": 3}
+    return sorted(health, key=lambda h: (order[h.state], h.site.business_name.lower()))
+
+
 @router.get("/", response_class=HTMLResponse)
 def overview(request: Request, viewer: ViewerDep, session: SessionDep) -> HTMLResponse:
     incidents = session.scalars(
@@ -355,31 +439,42 @@ def overview(request: Request, viewer: ViewerDep, session: SessionDep) -> HTMLRe
         .order_by(Incident.priority, Incident.created_at.desc())
     ).all()
     rows = [(i, summarize(session, i), is_acknowledged(session, i)) for i in incidents]
-    active = session.scalars(select(Site).where(Site.status == SiteStatus.ACTIVE)).all()
+    sites = session.scalars(
+        select(Site).where(Site.status != SiteStatus.REMOVED).order_by(Site.business_name)
+    ).all()
+    active = [s for s in sites if s.status == SiteStatus.ACTIVE]
+    stale = [s for s in active if _stale(s)]
+    warning_sites = [s for s in active if any(f.is_warning for f in latest_findings(session, s))]
+    disagree_sites = [s for s in active if disagreement(session, s, latest_observation(session, s))]
+    urgent = [
+        (i, s)
+        for i, s, acked in rows
+        if i.priority in (Priority.P1, Priority.P2) and not acked and s.affected
+    ]
+    reports = [s.last_report_at for s in active if s.last_report_at]
     return page(
         request,
         "overview.html",
         {
             "rows": rows,
-            "unacked_urgent": sum(
-                1
-                for i, s, acked in rows
-                if i.priority in (Priority.P1, Priority.P2) and not acked and s.affected
-            ),
+            "urgent": urgent,
+            "unacked_urgent": len(urgent),
+            "sites": sites,
             "active_sites": len(active),
-            "stale": [s for s in active if _stale(s)],
+            "reporting": len(active) - len(stale),
+            "last_report": max(reports) if reports else None,
+            "health": _site_health(
+                session, sites, {s.id for s in warning_sites}, {s.id for s in disagree_sites}
+            ),
+            "stale": stale,
             "suspicious": [s for s in active if s.suspicious],
             "fixes_not_visible": sum(
                 1
                 for c in session.scalars(select(Case).where(Case.exposure == Exposure.FIX_CLAIMED))
                 if fix_not_visible(session, c)
             ),
-            "warning_sites": [
-                s for s in active if any(f.is_warning for f in latest_findings(session, s))
-            ],
-            "disagree_sites": [
-                s for s in active if disagreement(session, s, latest_observation(session, s))
-            ],
+            "warning_sites": warning_sites,
+            "disagree_sites": disagree_sites,
             "needs_review": session.scalar(
                 select(func.count())
                 .select_from(Advisory)

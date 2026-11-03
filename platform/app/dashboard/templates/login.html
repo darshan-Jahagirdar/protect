@@ -1,7 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Sign in · Protect{% endblock %}
 {% block content %}
+<div class="auth">
 <h1>Sign in</h1>
+<p class="lede">Security alerts and fixes for the sites we look after.</p>
 <form method="post" action="/login" class="card form-grid narrow-form">
   <input type="hidden" name="next" value="{{ next }}">
   <label>Work email <input type="email" name="email" value="{{ email }}" required maxlength="320" autocomplete="username" autofocus></label>
@@ -31,4 +33,5 @@
   <pre>docker compose -f docker/compose.yaml exec platform python -m app.cli add-user --email you@example.com --name "Your Name" --role admin</pre>
 {% endif %}
 {% endif %}
+</div>
 {% endblock %}

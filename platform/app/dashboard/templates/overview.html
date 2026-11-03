@@ -1,29 +1,131 @@
 {% extends "base.html" %}
 {% block title %}Overview · Protect{% endblock %}
 {% block content %}
-<h1>Overview</h1>
+{% set can_act = viewer.user.role.value != "viewer" %}
+{% set attention = urgent | length + stale | length + warning_sites | length + disagree_sites | length + suspicious | length + (1 if fixes_not_visible else 0) %}
+
+<div class="page-head">
+  <h1>Overview</h1>
+  <span class="status-line">
+    <span class="dot {% if urgent or warning_sites or disagree_sites %}dot-bad{% elif attention %}dot-warn{% else %}dot-ok{% endif %}"></span>
+    {{ reporting }}/{{ active_sites }} sites reporting
+    <span class="sep">·</span>
+    last report {{ last_report | ago }}
+  </span>
+</div>
+
+<div class="eyebrow">Needs you now{% if attention %} <span class="count">· {{ attention }}</span>{% endif %}</div>
+{% if attention %}
+{% set red = urgent or warning_sites or disagree_sites %}
+<section class="alert-panel{% if not red %} alert-warn{% endif %}" aria-label="Needs you now">
+  <ul class="alert-list">
+    {% for incident, summary in urgent %}
+    <li class="alert-item">
+      <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 2 20h20L12 3Z"/><path d="M12 10v4M12 17.5v.01"/></svg>
+      <div class="alert-text">
+        <div class="alert-title">
+          {% if incident.drill %}<span class="badge badge-drill">DRILL</span> {% endif %}<span class="badge badge-{{ incident.priority.value | lower }}">{{ incident.priority.value }}</span>
+          <a href="/incidents/{{ incident.id }}">{{ incident.title }}</a>
+        </div>
+        <div class="alert-meta">{{ summary.affected }} site{{ "s" if summary.affected != 1 }} · opened {{ incident.created_at | ago }} · nobody has picked it up</div>
+      </div>
+      {% if can_act %}
+      <form method="post" action="/incidents/{{ incident.id }}/ack">
+        <input type="hidden" name="csrf_token" value="{{ viewer.csrf }}">
+        <button class="button-danger" type="submit">I'm on it</button>
+      </form>
+      {% else %}
+      <a class="button-secondary" href="/incidents/{{ incident.id }}">Open</a>
+      {% endif %}
+    </li>
+    {% endfor %}
+    {% for s in warning_sites %}
+    <li class="alert-item">
+      <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z"/><path d="M12 11v3M12 17v.01"/></svg>
+      <div class="alert-text">
+        <div class="alert-title">Warning signs in {{ s.business_name }}'s files</div>
+        <div class="alert-meta">file checks found something that shouldn't be there</div>
+      </div>
+      <a class="button-secondary" href="/sites/{{ s.id }}#file-checks">Review</a>
+    </li>
+    {% endfor %}
+    {% for s in disagree_sites %}
+    <li class="alert-item">
+      <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 7h12M8 7l3-3M8 7l3 3M16 17H4M16 17l-3-3M16 17l-3 3"/></svg>
+      <div class="alert-text">
+        <div class="alert-title">{{ s.business_name }}: report and public view disagree</div>
+        <div class="alert-meta">the plugin and the public homepage show different versions</div>
+      </div>
+      <a class="button-secondary" href="/sites/{{ s.id }}#public-view">Compare</a>
+    </li>
+    {% endfor %}
+    {% for s in stale %}
+    <li class="alert-item is-warn">
+      <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M12 19.5v.01M3 3l18 18"/></svg>
+      <div class="alert-text">
+        <div class="alert-title">{{ s.business_name }} has gone quiet</div>
+        <div class="alert-meta">last report {{ s.last_report_at | ago }} · reports normally arrive every hour</div>
+      </div>
+      <a class="button-secondary" href="/sites/{{ s.id }}">Check site</a>
+    </li>
+    {% endfor %}
+    {% for s in suspicious %}
+    <li class="alert-item is-warn">
+      <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16v.01"/></svg>
+      <div class="alert-text">
+        <div class="alert-title">{{ s.business_name }} sent an odd report</div>
+        <div class="alert-meta">something in it didn't look right; it may be a copy of the site</div>
+      </div>
+      <a class="button-secondary" href="/sites/{{ s.id }}">Look</a>
+    </li>
+    {% endfor %}
+    {% if fixes_not_visible %}
+    <li class="alert-item is-warn">
+      <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      <div class="alert-text">
+        <div class="alert-title">{{ fixes_not_visible }} fix{{ "es" if fixes_not_visible != 1 }} claimed but not showing yet</div>
+        <div class="alert-meta">claimed over 2 hours ago; the site's reports still show the old version</div>
+      </div>
+      <a class="button-secondary" href="/incidents">See incidents</a>
+    </li>
+    {% endif %}
+  </ul>
+</section>
+{% else %}
+<section class="clear-panel">
+  <span class="dot dot-ok"></span>
+  <div><strong>All clear.</strong> <span class="muted">Nothing needs you right now. Protect keeps watching and will email you if that changes.</span></div>
+</section>
+{% endif %}
+
 <div class="tiles">
   <a class="tile" href="/incidents"><div class="tile-value">{{ rows | length }}</div><div class="tile-label">Open incidents</div></a>
-  <section class="tile {% if unacked_urgent %}tile-alert{% endif %}"><div class="tile-value">{{ unacked_urgent }}</div><div class="tile-label">P1/P2 not acknowledged</div></section>
-  <a class="tile" href="/sites"><div class="tile-value">{{ active_sites }}</div><div class="tile-label">Active sites</div></a>
-  <section class="tile {% if stale %}tile-warn{% endif %}"><div class="tile-value">{{ stale | length }}</div><div class="tile-label">Sites not reporting (3h+)</div></section>
-  <section class="tile {% if suspicious %}tile-warn{% endif %}"><div class="tile-value">{{ suspicious | length }}</div><div class="tile-label">Odd reports</div></section>
+  <a class="tile {% if stale %}tile-warn{% endif %}" href="/sites"><div class="tile-value">{{ reporting }}<span class="of">/{{ active_sites }}</span></div><div class="tile-label">Sites reporting</div></a>
   <section class="tile {% if warning_sites %}tile-alert{% endif %}"><div class="tile-value">{{ warning_sites | length }}</div><div class="tile-label">Sites with warning signs</div></section>
-  <section class="tile {% if disagree_sites %}tile-alert{% endif %}"><div class="tile-value">{{ disagree_sites | length }}</div><div class="tile-label">Report vs public view disagree</div></section>
-  <section class="tile {% if fixes_not_visible %}tile-warn{% endif %}"><div class="tile-value">{{ fixes_not_visible }}</div><div class="tile-label">Fixes not showing (2h+)</div></section>
   <a class="tile" href="/advisories"><div class="tile-value">{{ needs_review }}</div><div class="tile-label">Advisories to review</div></a>
 </div>
 
-<h2>Open incidents</h2>
-{% include "_incident_rows.html" %}
-
-{% if stale or suspicious or warning_sites or disagree_sites %}
-<h2>Sites needing attention</h2>
-<ul>
-  {% for s in stale %}<li><a href="/sites/{{ s.id }}">{{ s.business_name }}</a>: no report for over 3 hours</li>{% endfor %}
-  {% for s in warning_sites %}<li><a href="/sites/{{ s.id }}#file-checks">{{ s.business_name }}</a>: file checks show warning signs</li>{% endfor %}
-  {% for s in disagree_sites %}<li><a href="/sites/{{ s.id }}#public-view">{{ s.business_name }}</a>: report and public view disagree</li>{% endfor %}
-  {% for s in suspicious %}<li><a href="/sites/{{ s.id }}">{{ s.business_name }}</a>: sent an odd report</li>{% endfor %}
-</ul>
+<div class="eyebrow">Site health <span class="count">· {{ health | length }}</span></div>
+{% if health %}
+<div class="site-grid">
+  {% for h in health %}
+  <a class="site-card state-{{ h.state }}" href="{{ h.href }}">
+    <span class="site-name"><span class="dot dot-{{ h.state }}"></span><span>{{ h.site.business_name }}</span></span>
+    <span class="site-state">{{ h.label }}</span>
+    <span class="site-meta">{{ h.site.url | replace("https://", "") | replace("http://", "") }} · {{ h.site.last_report_at | ago }}</span>
+  </a>
+  {% endfor %}
+</div>
+<div class="legend">
+  <span><span class="dot dot-ok"></span>All good</span>
+  <span><span class="dot dot-warn"></span>Look at it</span>
+  <span><span class="dot dot-bad"></span>Needs a fix</span>
+  <span><span class="dot"></span>Not connected</span>
+</div>
+{% else %}
+<div class="panel"><span class="muted">No sites yet.</span> <a href="/sites">Add the first site</a></div>
 {% endif %}
+
+<div class="eyebrow">Open incidents <span class="count">· {{ rows | length }}</span></div>
+{% include "_incident_rows.html" %}
 {% endblock %}

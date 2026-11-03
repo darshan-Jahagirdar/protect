@@ -3,6 +3,7 @@ import re
 import pytest
 
 from app.dashboard.auth import COOKIE, decode_session, encode_session, safe_next
+from app.db import utcnow
 from app.enums import Compromise, Exposure, HostType, SiteStatus, UserRole
 from app.models import AuditLog, Case, ChecklistItem, Event, Site, User
 from app.settings import Settings
@@ -146,7 +147,60 @@ def test_overview_counts(dash: Dash) -> None:
     dash.login()
     text = dash.client.get("/").text
     assert "PHP2Shell" in text
-    assert re.search(r'tile-value">1</div><div class="tile-label">P1/P2 not acknowledged', text)
+    # The unacknowledged P1 is in "Needs you now" with an "I'm on it" button.
+    panel = text.split('class="alert-panel', 1)[1].split("</section>", 1)[0]
+    assert "PHP2Shell" in panel and "nobody has picked it up" in panel
+    assert "I'm on it" in panel
+    # ...and its site shows red on the health grid.
+    assert re.search(r'site-card state-bad".*?Needs a fix now', text, re.S)
+
+
+def test_overview_all_clear_and_site_states(dash: Dash) -> None:
+
+    dash.login()
+    with dash.session() as s:
+        s.add(
+            Site(business_name="Waiting Co", url="https://waiting.test", status=SiteStatus.PENDING)
+        )
+        s.add(
+            Site(
+                business_name="Fine Co",
+                url="https://fine.test",
+                status=SiteStatus.ACTIVE,
+                last_report_at=utcnow(),
+            )
+        )
+        s.commit()
+    text = dash.client.get("/").text
+    assert "All clear." in text and 'class="alert-panel' not in text
+    assert re.search(r'state-ok".*?Fine Co.*?All good', text, re.S)
+    assert re.search(r'state-idle".*?Waiting Co.*?Not connected yet', text, re.S)
+
+
+def test_overview_quiet_site_is_amber_not_red(dash: Dash) -> None:
+    from datetime import timedelta
+
+    dash.login()
+    with dash.session() as s:
+        s.add(
+            Site(
+                business_name="Quiet Co",
+                url="https://quiet.test",
+                status=SiteStatus.ACTIVE,
+                last_report_at=utcnow() - timedelta(hours=5),
+            )
+        )
+        s.commit()
+    text = dash.client.get("/").text
+    assert 'class="alert-panel alert-warn"' in text and "Quiet Co has gone quiet" in text
+    assert re.search(r'state-warn".*?Quiet Co.*?Silent for 5h', text, re.S)
+
+
+def test_viewer_sees_open_instead_of_acknowledge(dash: Dash) -> None:
+    _case(dash)
+    dash.login(UserRole.VIEWER)
+    panel = dash.client.get("/").text.split('class="alert-panel', 1)[1].split("</section>", 1)[0]
+    assert "I'm on it" not in panel and ">Open</a>" in panel
 
 
 # --- Roles -----------------------------------------------------------------------------------

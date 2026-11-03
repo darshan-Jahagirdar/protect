@@ -6,9 +6,13 @@
     <tr>
       <td><span class="badge badge-{{ incident.priority.value | lower }}">{{ incident.priority.value }}</span></td>
       <td>{% if incident.drill %}<span class="badge badge-drill">DRILL</span> {% endif %}<a href="/incidents/{{ incident.id }}">{{ incident.title }}</a></td>
-      <td>{{ summary.affected }}{% if summary.needs_check %} <span class="muted">({{ summary.needs_check }} to check)</span>{% endif %}</td>
-      <td>{{ incident.status.value }}{% if incident.status.value != "closed" %} · {% if acked %}acknowledged{% else %}<strong>not acknowledged</strong>{% endif %}{% endif %}</td>
-      <td class="muted">{{ incident.created_at.strftime("%Y-%m-%d %H:%M UTC") }}</td>
+      <td class="mono">{{ summary.affected }}{% if summary.needs_check %} <span class="muted">({{ summary.needs_check }} to check)</span>{% endif %}</td>
+      <td>
+        {% if incident.status.value == "closed" %}<span class="status-chip">closed</span>
+        {% elif acked %}<span class="status-chip">{{ incident.status.value }} · acknowledged</span>
+        {% else %}<span class="status-chip unacked">{{ incident.status.value }} · not acknowledged</span>{% endif %}
+      </td>
+      <td class="when" title="{{ incident.created_at.strftime('%Y-%m-%d %H:%M UTC') }}">{{ incident.created_at.strftime("%d %b %H:%M") }}</td>
     </tr>
   {% else %}
     <tr><td colspan="5" class="muted">No open incidents.</td></tr>

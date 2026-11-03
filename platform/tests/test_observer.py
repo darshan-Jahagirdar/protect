@@ -387,13 +387,8 @@ def test_site_page_observe_now_and_disagreement_banner(db_url: str) -> None:
 
 
 def _disagree_tile(overview: str) -> int:
-    """The overview tile's count (its label is always shown)."""
-    m = re.search(
-        r'<div class="tile-value">(\d+)</div><div class="tile-label">Report vs public view',
-        overview,
-    )
-    assert m, "disagreement tile not found"
-    return int(m.group(1))
+    """How many sites the overview's "Needs you now" panel lists as disagreeing."""
+    return len(re.findall(r"report and public view disagree</div>", overview))
 
 
 def test_pages_show_no_banner_for_an_out_of_date_view(db_url: str) -> None:

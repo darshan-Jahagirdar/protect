@@ -8,7 +8,7 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 	exit;
 }
 
-foreach ( array( 'protect_reporter_keypair', 'protect_reporter_settings', 'protect_reporter_last', 'protect_reporter_last_php', 'protect_reporter_scan', 'protect_reporter_checks' ) as $option ) {
+foreach ( array( 'protect_reporter_keypair', 'protect_reporter_settings', 'protect_reporter_last', 'protect_reporter_last_php', 'protect_reporter_scan', 'protect_reporter_checks', 'protect_reporter_cli_cron' ) as $option ) {
 	delete_option( $option );
 }
 wp_clear_scheduled_hook( 'protect_reporter_send' );

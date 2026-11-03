@@ -33,6 +33,7 @@ from app.enums import (
     HostType,
     IncidentStatus,
     Priority,
+    RefusedReason,
     ReviewStatus,
     SiteStatus,
     UserRole,
@@ -52,6 +53,7 @@ from app.services.observations import (
     public_view_outdated,
     tls_warning,
 )
+from app.settings import is_local_host
 
 templates = Jinja2Templates(directory=Path(__file__).resolve().parent / "templates")
 router = APIRouter()
@@ -59,6 +61,22 @@ router = APIRouter()
 SessionDep = Annotated[Session, Depends(get_session)]
 CSRF = [Depends(check_csrf)]
 STALE_AFTER = timedelta(hours=3)
+REFUSED_SHOWN_FOR = timedelta(hours=24)
+REFUSED_TEXT = {  # why a correctly signed report was refused (Site.refused_reason)
+    RefusedReason.SITE_URL_MISMATCH: (
+        "it was signed with this site's key but came from a different address. A copy of the "
+        "site (such as a staging site) is probably reporting. Its data was not used. Remove the "
+        "plugin from the copy; if the live site's address changed, add the site again with its "
+        "new address."
+    ),
+    RefusedReason.FORMAT: (
+        "it didn't pass the format checks, so it was not used. The server log says which field. "
+        "Until it's fixed the site will show as not reporting."
+    ),
+    RefusedReason.CLI: (
+        "it was sent from command-line PHP, whose versions can differ from the website's."
+    ),
+}
 RISK_TAGS = ("ecommerce", "personal_data")
 MESSAGES = {  # fixed texts only: nothing user-supplied is reflected from the URL
     "acknowledged": "Acknowledged. Escalation is stopped.",
@@ -97,8 +115,14 @@ def _get(session: Session, model: type, key: object) -> Any:
 
 
 def _dev_only(request: Request) -> None:
-    if request.app.state.settings.is_prod:
+    settings = request.app.state.settings
+    if settings.is_prod:
         raise HTTPException(status_code=404)  # prod signs in through Cloudflare Access (P4)
+    # Password-free sign-in only when the browser talks to this machine directly. A request
+    # that arrives through a public address (a server left in dev mode) gets nothing.
+    host = request.url.hostname or ""
+    if not is_local_host(host) and not (settings.env == "test" and host == "testserver"):
+        raise HTTPException(status_code=404)
 
 
 # --- Sign in / out ------------------------------------------------------------------------
@@ -247,6 +271,16 @@ def add_site(
     return site_view(request, viewer, session, site, new_code=code)
 
 
+def _refused_text(site: Site) -> str | None:
+    """The refusal note, while it's recent or newer than the last accepted report."""
+    if site.refused_at is None or site.refused_reason not in REFUSED_TEXT:
+        return None
+    newer = site.last_report_at is None or site.refused_at > site.last_report_at
+    if not newer and utcnow() - site.refused_at > REFUSED_SHOWN_FOR:
+        return None
+    return REFUSED_TEXT[RefusedReason(site.refused_reason)]
+
+
 def site_view(
     request: Request, viewer: ViewerDep, session: Session, site: Site, new_code: str | None = None
 ) -> HTMLResponse:
@@ -263,6 +297,7 @@ def site_view(
             "cases": site_cases,
             "new_code": new_code,
             "stale": _stale(site),
+            "refused": _refused_text(site),
             "host_types": list(HostType),
             "risk_tags": RISK_TAGS,
             "components": sorted(site.components, key=lambda c: c.component_key),

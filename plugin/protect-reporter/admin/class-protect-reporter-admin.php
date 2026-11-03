@@ -85,6 +85,19 @@ class Protect_Reporter_Admin {
 		printf( '<div class="notice notice-%1$s"><p>%2$s</p></div>', esc_attr( $type ), esc_html( $text ) );
 	}
 
+	/**
+	 * Cron ran from the command line in the last day, and no report has been accepted in the
+	 * last two hours: automatic reports aren't going out.
+	 */
+	private static function cron_runs_from_cli( $last ) {
+		$cli = (int) get_option( Protect_Reporter_Sender::CLI_CRON, 0 );
+		if ( time() - $cli > DAY_IN_SECONDS ) {
+			return false;
+		}
+		$ok = is_array( $last ) && 204 === (int) $last['status'] ? strtotime( $last['at'] ) : 0;
+		return time() - (int) $ok > 2 * HOUR_IN_SECONDS;
+	}
+
 	public static function render() {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			return;
@@ -96,6 +109,22 @@ class Protect_Reporter_Admin {
 		<div class="wrap">
 			<h1>Protect Reporter</h1>
 			<?php self::notice(); ?>
+			<?php if ( Protect_Reporter_Sender::site_moved() ) : ?>
+				<div class="notice notice-warning"><p>
+					<?php
+					printf(
+						'This site\'s address is now %1$s, but it was connected as %2$s. Reports are paused, so a copy of a site (such as a staging site) can never report as the live one. If this is the live site and its address changed, ask the Protect team for a new code and reconnect.',
+						'<code>' . esc_html( untrailingslashit( get_site_url() ) ) . '</code>',
+						'<code>' . esc_html( $settings['site_url'] ) . '</code>'
+					);
+					?>
+				</p></div>
+			<?php endif; ?>
+			<?php if ( self::cron_runs_from_cli( $last ) ) : ?>
+				<div class="notice notice-warning"><p>
+					This host runs WordPress's scheduled tasks from the command line. The plugin doesn't report from there, because command-line PHP can be a different version from the one serving the site, so automatic reports aren't going out. Use Report now for the moment, and ask the host to run scheduled tasks through the website (a request to wp-cron.php) instead.
+				</p></div>
+			<?php endif; ?>
 			<p>This plugin sends TransFunnel Protect a signed list of this site's software versions and file-check results. It sends only; it cannot receive commands or change this site. It never sends visitor data, logs, database contents, file contents or passwords.</p>
 
 			<h2>Status</h2>

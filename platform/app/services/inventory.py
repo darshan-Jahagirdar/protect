@@ -14,7 +14,6 @@ from app.engine.catalogue import is_valid_key
 from app.engine.matcher import OsFacts, classify_php_build
 from app.engine.versions import extract_version, parse_loose, parse_php
 from app.models import Report, Site, SiteComponent
-from app.services.enrollment import normalize_url
 from app.services.findings import note_new_warning_signs
 from app.services.incidents import rematch_site
 
@@ -91,12 +90,7 @@ def _went_down(old: str | None, new: str | None, php: bool = False) -> bool:
 def flags_for(report: ReportPayload, site: Site, previous: dict | None, now: datetime) -> list[str]:
     """Signs of an odd report. They don't reject it; they mark the site 'suspicious report'."""
     flags: list[str] = []
-    try:
-        if normalize_url(report.site_url) != site.url:
-            flags.append("site_url_mismatch")
-    except ValueError:
-        flags.append("site_url_mismatch")
-
+    # A different site_url never gets here: the API refuses it (app/api/routes.py).
     php = parse_php(report.php.version)
     if not php or (php.major, php.minor, php.release) != (
         report.php.major,

@@ -83,6 +83,10 @@ class Site(Base):
         ForeignKey("reports.id", use_alter=True, ondelete="SET NULL")
     )
     suspicious: Mapped[bool] = mapped_column(Boolean, default=False)
+    # The last correctly signed report we refused, and why (a RefusedReason value). Shown on
+    # the site page, so a refused report is never only a log line.
+    refused_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    refused_reason: Mapped[str | None] = mapped_column(String(40))
     created_at: Mapped[datetime] = _created()
 
     reports: Mapped[list["Report"]] = relationship(

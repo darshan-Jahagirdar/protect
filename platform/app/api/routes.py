@@ -8,7 +8,11 @@ Order of checks for /report (cheap and unauthenticated checks first, then the si
 then everything else):
   HTTPS (prod) -> per-IP rate limit -> body size -> header formats -> known key ->
   timestamp window -> signature -> per-key rate limit -> nonce (replay) -> JSON schema ->
-  web SAPI only -> store.
+  web SAPI only -> same site address as enrolled -> store.
+
+A correctly signed report that fails the last three checks is refused AND recorded on the site
+(refused_at, refused_reason), so the dashboard shows it. A report from a copy of the site, such
+as a staging clone that kept the signing key, must never change the live site's inventory.
 """
 
 import json
@@ -28,9 +32,9 @@ from app.api import signing
 from app.api.ratelimit import RateLimiter
 from app.api.schemas import EnrollRequest, Report
 from app.db import get_session, utcnow
-from app.enums import SiteStatus
+from app.enums import RefusedReason, SiteStatus
 from app.models import Nonce, Site
-from app.services.enrollment import EnrollError, enroll
+from app.services.enrollment import EnrollError, enroll, normalize_url
 from app.services.inventory import apply_report
 from app.settings import Settings
 
@@ -56,9 +60,10 @@ class Limiters:
 
 
 class Reject(Exception):
-    def __init__(self, status: int, reason: str):
+    def __init__(self, status: int, reason: str, refused: RefusedReason | None = None):
         self.status = status
         self.reason = reason
+        self.refused = refused  # set only once the signature has been verified
 
 
 def _settings(request: Request) -> Settings:
@@ -122,6 +127,21 @@ def _parse(model: type[Report] | type[EnrollRequest], body: bytes):  # type: ign
         raise Reject(400, f"schema validation failed: {fields}") from e
 
 
+def _same_site(reported: str, enrolled: str) -> bool:
+    try:
+        return normalize_url(reported) == enrolled
+    except ValueError:
+        return False
+
+
+def _record_refusal(session: Session, site: Site, reason: RefusedReason) -> None:
+    site.refused_at = utcnow()
+    site.refused_reason = reason.value
+    if reason is RefusedReason.SITE_URL_MISMATCH:
+        site.suspicious = True
+    session.commit()
+
+
 def _record_nonce(session: Session, key_id: str, nonce: str, settings: Settings) -> None:
     now = utcnow()
     session.execute(
@@ -139,6 +159,7 @@ def _record_nonce(session: Session, key_id: str, nonce: str, settings: Settings)
 async def report(request: Request, session: Annotated[Session, Depends(get_session)]) -> Response:
     settings, limiters, ip = _settings(request), _limiters(request), _ip(request)
     key_id = request.headers.get("x-protect-key", "")
+    site: Site | None = None
     try:
         _require_https(request)
         if not limiters.per_ip.allow(ip):
@@ -156,15 +177,27 @@ async def report(request: Request, session: Annotated[Session, Depends(get_sessi
             raise Reject(429, "per-key rate limit")
         _record_nonce(session, key_id, nonce, settings)
 
-        payload: Report = _parse(Report, body)
+        try:
+            payload: Report = _parse(Report, body)
+        except Reject as r:
+            r.refused = RefusedReason.FORMAT
+            raise
         if payload.php.sapi == "cli":
-            raise Reject(400, "report sent from the CLI SAPI")
+            raise Reject(400, "report sent from the CLI SAPI", RefusedReason.CLI)
+        if not _same_site(payload.site_url, site.url):
+            raise Reject(
+                409,
+                f"site_url {payload.site_url[:100]!r} is not the enrolled {site.url!r}",
+                RefusedReason.SITE_URL_MISMATCH,
+            )
 
         result = apply_report(session, site, payload)
         session.commit()
     except Reject as r:
         session.rollback()
         log.warning("report rejected (%s): %s key=%s ip=%s", r.status, r.reason, key_id[:32], ip)
+        if r.refused is not None and site is not None:
+            _record_refusal(session, site, r.refused)
         return Response(status_code=r.status)
 
     log.info("report from site %s: %s", site.id, "stored" if result.stored else "unchanged")

@@ -9,6 +9,14 @@ class SiteStatus(StrEnum):
     REMOVED = "removed"
 
 
+class RefusedReason(StrEnum):
+    """Why a correctly signed report was refused (Site.refused_reason)."""
+
+    SITE_URL_MISMATCH = "site_url_mismatch"  # a copy of the site (e.g. staging), or it moved
+    FORMAT = "format"  # failed the schema or format checks
+    CLI = "cli"  # sent from the command-line PHP
+
+
 class HostType(StrEnum):
     MANAGED_WP = "managed-wp"
     CPANEL = "cpanel"

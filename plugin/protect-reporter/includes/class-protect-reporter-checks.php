@@ -23,11 +23,16 @@ class Protect_Reporter_Checks {
 	const MAX_PATHS    = 500;
 	const MAX_RECENT   = 50;
 	const CACHE_TTL    = 86400;
+	const FAIL_TTL     = 3600;                       // remember a failed lookup this long
+	const FETCH_TIMEOUT = 5;                         // seconds per wordpress.org request
 
 	private static $php_ext = array( 'php', 'phtml', 'phar', 'php3', 'php4', 'php5', 'php7', 'php8', 'pht', 'phps' );
 
 	/** @var float */
 	private static $deadline = 0.0;
+
+	/** @var array<string, mixed> Checksum lookups already done in this request. */
+	private static $memo = array();
 
 	// --- Public API -------------------------------------------------------------------
 
@@ -259,7 +264,7 @@ class Protect_Reporter_Checks {
 			$by_plugin[ $slug ][] = $path;
 		}
 		foreach ( $versions as $slug => $version ) {
-			$sums = self::plugin_checksums( $slug, $version );
+			$sums = self::plugin_checksums( $slug, $version, true ); // no new requests here
 			if ( is_array( $sums ) ) {
 				$status = empty( $by_plugin[ $slug ] ) ? 'ok' : 'mismatch';
 			} else {
@@ -296,15 +301,23 @@ class Protect_Reporter_Checks {
 	}
 
 	// --- Official checksums (read-only reference data from wordpress.org) ----------------
+	//
+	// A failed lookup is remembered for an hour (FAIL_TTL). Otherwise a slow or unreachable
+	// wordpress.org would cost a full timeout for every file and every run, push a run past
+	// PHP's time limit, and stop reports altogether.
 
 	/** @return array<string,string>|null  path => md5 */
 	private static function core_checksums() {
 		global $wp_version;
 		$locale = get_locale();
 		$key    = 'protect_reporter_core_sums_' . md5( $wp_version . '|' . $locale );
+		if ( array_key_exists( $key, self::$memo ) ) {
+			return self::$memo[ $key ];
+		}
 		$cached = get_transient( $key );
-		if ( is_array( $cached ) ) {
-			return $cached;
+		if ( is_array( $cached ) || 'error' === $cached ) {
+			self::$memo[ $key ] = is_array( $cached ) ? $cached : null;
+			return self::$memo[ $key ];
 		}
 		foreach ( array_unique( array( $locale, 'en_US' ) ) as $try ) {
 			$url  = add_query_arg(
@@ -323,38 +336,55 @@ class Protect_Reporter_Checks {
 					}
 				}
 				set_transient( $key, $sums, self::CACHE_TTL );
+				self::$memo[ $key ] = $sums;
 				return $sums;
 			}
 		}
+		self::failed( $key );
 		return null;
 	}
 
 	/**
+	 * @param bool $cache_only Answer from earlier lookups only, never make a request.
 	 * @return array<string,string[]>|string  path => accepted md5s, or 'none' (not on
 	 *                                         wordpress.org) or 'error' (couldn't check).
 	 */
-	private static function plugin_checksums( $slug, $version ) {
+	private static function plugin_checksums( $slug, $version, $cache_only = false ) {
 		if ( ! preg_match( '/^[a-z0-9][a-z0-9._-]{0,99}$/', $slug ) || ! preg_match( '/^[0-9A-Za-z.+~_-]{1,64}$/', (string) $version ) ) {
 			return 'none';
 		}
-		$key    = 'protect_reporter_psums_' . md5( $slug . '|' . $version );
+		$key = 'protect_reporter_psums_' . md5( $slug . '|' . $version );
+		if ( array_key_exists( $key, self::$memo ) ) {
+			return self::$memo[ $key ];
+		}
 		$cached = get_transient( $key );
 		if ( false !== $cached ) {
+			self::$memo[ $key ] = $cached;
 			return $cached;
 		}
-		$url      = 'https://downloads.wordpress.org/plugin-checksums/' . rawurlencode( $slug ) . '/' . rawurlencode( $version ) . '.json';
-		$response = wp_remote_get( $url, array( 'timeout' => 10, 'redirection' => 2 ) );
-		if ( is_wp_error( $response ) ) {
+		if ( $cache_only ) {
 			return 'error';
+		}
+		$url      = 'https://downloads.wordpress.org/plugin-checksums/' . rawurlencode( $slug ) . '/' . rawurlencode( $version ) . '.json';
+		$response = wp_remote_get(
+			$url,
+			array(
+				'timeout'     => self::FETCH_TIMEOUT,
+				'redirection' => 2,
+			)
+		);
+		if ( is_wp_error( $response ) ) {
+			return self::failed( $key );
 		}
 		$code = (int) wp_remote_retrieve_response_code( $response );
 		if ( 404 === $code ) {
 			set_transient( $key, 'none', self::CACHE_TTL );
+			self::$memo[ $key ] = 'none';
 			return 'none';
 		}
 		$data = 200 === $code ? json_decode( wp_remote_retrieve_body( $response ), true ) : null;
 		if ( ! isset( $data['files'] ) || ! is_array( $data['files'] ) ) {
-			return 'error';
+			return self::failed( $key );
 		}
 		$sums = array();
 		foreach ( $data['files'] as $path => $info ) {
@@ -363,7 +393,15 @@ class Protect_Reporter_Checks {
 			}
 		}
 		set_transient( $key, $sums, self::CACHE_TTL );
+		self::$memo[ $key ] = $sums;
 		return $sums;
+	}
+
+	/** Remember a failed lookup for FAIL_TTL. Returns 'error'. */
+	private static function failed( $key ) {
+		set_transient( $key, 'error', self::FAIL_TTL );
+		self::$memo[ $key ] = 'error';
+		return 'error';
 	}
 
 	/** Reference data from api.wordpress.org only. The platform's replies are never read. */
@@ -371,7 +409,13 @@ class Protect_Reporter_Checks {
 		if ( 0 !== strpos( $url, 'https://api.wordpress.org/' ) ) {
 			return null;
 		}
-		$response = wp_remote_get( $url, array( 'timeout' => 10, 'redirection' => 2 ) );
+		$response = wp_remote_get(
+			$url,
+			array(
+				'timeout'     => self::FETCH_TIMEOUT,
+				'redirection' => 2,
+			)
+		);
 		if ( is_wp_error( $response ) || 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
 			return null;
 		}
@@ -386,8 +430,8 @@ class Protect_Reporter_Checks {
 	}
 
 	private static function add( &$list, $path ) {
-		if ( count( $list ) < self::MAX_PATHS && strlen( $path ) <= 400 ) {
-			$list[] = $path;
+		if ( count( $list ) < self::MAX_PATHS ) {
+			$list[] = substr( Protect_Reporter_Inventory::safe_path( $path ), 0, 400 ); // kept, even if long
 		}
 	}
 

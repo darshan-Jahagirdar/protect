@@ -141,6 +141,7 @@ def test_cli_sapi_rejected(env: Env, enrolled: FakePlugin) -> None:
     data = report()
     data["php"] = {**data["php"], "sapi": "cli"}
     assert _send(env, enrolled, data) == 400
+    assert env.site().refused_reason == "cli"
 
 
 @pytest.mark.parametrize(
@@ -200,10 +201,66 @@ def test_php_downgrade_flags_site(env: Env, enrolled: FakePlugin) -> None:
     assert env.site().suspicious
 
 
-def test_site_url_mismatch_flags_site(env: Env, enrolled: FakePlugin) -> None:
-    assert _send(env, enrolled, report(site_url="https://staging-copy.example")) == 204
-    assert "site_url_mismatch" in _reports(env)[-1].flags
-    assert env.site().suspicious
+def _patched_copy(site_url: str) -> dict[str, Any]:
+    """A report from a copy of the site (e.g. staging) that has been patched."""
+    data = report(site_url=site_url)
+    data["php"] = {**data["php"], "version": "8.3.36", "release": 36}
+    return data
+
+
+def test_report_from_another_address_is_refused_and_not_used(
+    env: Env, enrolled: FakePlugin
+) -> None:
+    # A staging clone keeps the live site's signing key. Its report must never make the
+    # live site look patched (that would verify and close a real incident).
+    assert _send(env, enrolled, report()) == 204
+    assert _send(env, enrolled, _patched_copy("https://staging-copy.example")) == 409
+    assert _components(env)["php"].version_raw == "8.3.30"
+    assert len(_reports(env)) == 1
+    site = env.site()
+    assert site.suspicious
+    assert site.refused_reason == "site_url_mismatch"
+    assert site.refused_at is not None
+    assert site.last_report_at < site.refused_at
+
+
+@pytest.mark.parametrize("same", ["http://127.0.0.1:8081/", "http://127.0.0.1:8081"])
+def test_same_address_written_differently_is_accepted(
+    env: Env, enrolled: FakePlugin, same: str
+) -> None:
+    assert _send(env, enrolled, report(site_url=same)) == 204
+    assert env.site().refused_reason is None
+
+
+def test_badly_signed_report_is_not_recorded_as_refused(env: Env, enrolled: FakePlugin) -> None:
+    # Only a correctly signed report can mark a site: an outsider can't make it look odd.
+    body = body_of(_patched_copy("https://staging-copy.example"))
+    headers = FakePlugin().headers(body)
+    headers["x-protect-key"] = enrolled.key_id
+    assert env.client.post("/api/v1/report", content=body, headers=headers).status_code == 401
+    site = env.site()
+    assert site.refused_at is None
+    assert not site.suspicious
+
+
+def test_signed_report_failing_format_checks_is_recorded(env: Env, enrolled: FakePlugin) -> None:
+    data = report()
+    data["checks"] = {**data["checks"], "uploads_php": ["wp-content/uploads/a\\b.php"]}
+    assert _send(env, enrolled, data) == 400
+    site = env.site()
+    assert site.refused_reason == "format"
+    assert not site.suspicious  # refused and shown, but not "odd": it may be a plugin bug
+    assert _reports(env) == []
+
+
+def test_site_page_explains_a_refused_report(env: Env, enrolled: FakePlugin) -> None:
+    from app.dashboard.routes import _refused_text
+
+    assert _send(env, enrolled, report()) == 204
+    assert _refused_text(env.site()) is None
+    assert _send(env, enrolled, _patched_copy("https://staging-copy.example")) == 409
+    text = _refused_text(env.site())
+    assert text is not None and "different address" in text
 
 
 def test_inconsistent_php_fields_flag_site(env: Env, enrolled: FakePlugin) -> None:
@@ -241,3 +298,14 @@ def test_site_model_has_no_secret_columns() -> None:
     cols = {c.name for c in Site.__table__.columns}
     assert "public_key" in cols
     assert not {"private_key", "token", "secret", "password"} & cols
+
+
+def test_encoded_odd_file_name_is_accepted_and_still_flagged(
+    env: Env, enrolled: FakePlugin
+) -> None:
+    # The plugin percent-encodes backslashes and control characters in file names, so an
+    # oddly named backdoor still arrives (and is flagged) instead of blocking every report.
+    data = report()
+    data["checks"] = {**data["checks"], "uploads_php": ["wp-content/uploads/a%5Cb%0A.php"]}
+    assert _send(env, enrolled, data) == 204
+    assert _reports(env)[-1].payload["checks"]["uploads_php"] == ["wp-content/uploads/a%5Cb%0A.php"]

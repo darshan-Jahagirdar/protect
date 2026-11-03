@@ -46,6 +46,9 @@ class Protect_Reporter_Scheduler {
 	}
 
 	public static function check_php_changed() {
+		if ( 'cli' === php_sapi_name() ) {
+			return; // command-line PHP can differ from the site's, and it never reports anyway
+		}
 		$last = get_option( 'protect_reporter_last_php' );
 		if ( is_string( $last ) && PHP_VERSION !== $last ) {
 			self::soon();

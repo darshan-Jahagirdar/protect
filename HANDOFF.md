@@ -1,11 +1,13 @@
-# Handoff — 2026-10-23
+# Handoff — 2026-11-03
 
 Session summary for whoever picks up Protect next (a new Claude Code session, or a person). Read this first, then [AGENTS.md](AGENTS.md) (rules), [DESIGN.md](DESIGN.md) (what and why) and [PROGRESS.md](PROGRESS.md) (status board, every decision, work log).
 
 ## Where things stand
 
 - **Milestone 1 (demo):** steps 1–13 are done. The rehearsal ran the full script in 10 minutes on 2026-10-23. Its main finding (a stale "report and public view disagree" banner after each PHP change) is fixed; four small UI findings are still open (PROGRESS.md work log).
-- **Tests:** 468 pass (`cd platform && uv run pytest`), and ruff is clean. The plugin lints clean on PHP 7.4 and 8.3.
+- **Security review (2026-11-03):** found no way to break into a client site or the platform. Fixed five bugs that could make Protect miss or misreport a problem (staging copies reporting as the live site, odd file names blocking reports, wordpress.org outages stalling scans, oversized reports, command-line cron), plus a guard so dev mode's password-free sign-in can't run on a server. Remaining items are under Known issues in PROGRESS.md. **Production still has no dashboard sign-in**, so P4 (or the TOTP fallback) is needed before any real deployment.
+- **Next deployment idea:** the user plans to install the plugin on our own site, transfunnel.com (WordPress 7.1.4 behind Cloudflare). This needs the platform online first (P3, a small India VM), production sign-in (P4), and checking how its host runs WP-Cron (Q11).
+- **Tests:** 481 pass (`cd platform && uv run pytest`), and ruff is clean. The plugin lints clean on PHP 7.4 and 8.3, and `plugin/tests/logic-check.php` passes on PHP 7.4.
 - **GitHub:** `darshan-Jahagirdar/protect` (public, by the owner's choice), branch `main`, everything pushed. Commits and pushes happen only when the user asks.
 - **Claude Docs aligned with the build on 2026-10-23:** [GTM](https://claude.ai/artifact/CqXX1YdKiuXtyU1PQ83UuM), [Build plan](https://claude.ai/artifact/M3mtBXQqBcez9xheFecvae), [Data and compliance](https://claude.ai/artifact/S2wkNVaAxjNRD7bPVi3rgF). Read them with the Claude Docs connector, not a web fetch.
 
@@ -36,6 +38,7 @@ Everything runs locally in Docker (`docker compose -f docker/compose.yaml ps` �
 | Alert emails | http://127.0.0.1:8025 | Mailpit |
 
 **State of the demo data:**
+- **Docker is stopped** (volumes kept). Start without resetting PHP: `WP_PHP_IMAGE=php:8.3.36-apache docker compose -f docker/compose.yaml up -d --build`.
 - The site currently serves **PHP 8.3.36** (patched).
 - **All PHP2Shell incidents are closed** (step 9, the step 11 rollback test, the step 13 rehearsal, and the stale-banner fix check).
 - The **[DRILL] Hello Dolly P4 incident is open.**

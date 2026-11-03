@@ -121,7 +121,9 @@ Data flows one way from the sites to the platform. Nothing on the platform can r
 | Settings | Only the platform URL and a one-time enrollment code, on **Settings → Protect Reporter** (admin-only, nonce-checked, via `admin-post.php`). Nothing else is configurable. The URL must be `https://`; plain `http://` is accepted only when `wp_get_environment_type()` is `local` or `development`. |
 | Schedule | An hourly WP-Cron event. We recommend a real server cron that calls `wp-cron.php` **over HTTP** (many managed hosts already do this). |
 | On change | It also reports right after `upgrader_process_complete` (any core, plugin or theme update). On an admin page load it reports if `PHP_VERSION` differs from the last report. There is a "Report now" button in WP admin. |
-| Web SAPI only | It refuses to send if `php_sapi_name() === 'cli'`. A command-line PHP can be a different binary from the one serving the site. The platform also rejects CLI reports. |
+| Web SAPI only | It refuses to send if `php_sapi_name() === 'cli'`. A command-line PHP can be a different binary from the one serving the site. The platform also rejects CLI reports. Some hosts run WP-Cron from the command line, so the hourly report never goes out: the plugin remembers when cron last ran that way, and the settings page says so if no report has been accepted for 2 hours (the dashboard shows the site as not reporting). How to report automatically on such hosts is open (PROGRESS.md Q11). |
+| Copies of the site | At enrollment the plugin saves the site's address. If `get_site_url()` later differs (most likely a staging clone, which copies the signing key with the database) it pauses reports and the settings page says why. The platform refuses such reports too (section 4.2). Sites enrolled before this check save their address after their next accepted report. |
+| Report size | Before sending, the example-path lists in `checks` are shortened (never below one entry) until the JSON is under 200 KB; statuses are untouched. The platform's limit is 256 KB. |
 | Transparency | A WP admin page shows the exact JSON of the last report sent, plus the time and the result. |
 | Uninstall | Deletes its options and keys. It does not phone home. |
 | Updates | No self-update from our platform (R1 and R2). We release a zip and the team uploads it by hand, or through an existing site manager. |
@@ -157,6 +159,9 @@ The platform checks each report in this order. Cheap, unauthenticated checks com
 8. The nonce hasn't been seen in the last 15 minutes.
 9. The body matches the strict schema (pydantic, no extra fields). Field formats are checked here too: versions look like versions, slugs are `[a-z0-9._-]`, paths are site-relative with no `..`, and there are no control characters.
 10. `php.sapi` is not `cli`.
+11. `site_url` matches the enrolled URL (after normalising case and a trailing slash). Otherwise `409`.
+
+A correctly signed report that fails checks 9–11 is refused **and recorded on the site** (`refused_at`, `refused_reason`: `format`, `cli` or `site_url_mismatch`), and the site page explains it for 24 hours or until a newer report is accepted. A wrong address also marks the site "odd report". A report from a copy of the site, such as a staging clone that kept the signing key, must never change the live site's inventory: a patched copy would otherwise verify and close a real incident. Failures before the signature check are never recorded, so an outsider can't mark a site.
 
 A success returns `204` with no body. The implementation is in `platform/app/api/` and `platform/app/services/`. Until the dashboard screens exist (step 8), sites are added with `python -m app.cli add-site`.
 
@@ -167,7 +172,8 @@ What happens next depends on the result:
 | Valid, content unchanged since the last report | Only `last_seen` is updated. |
 | Valid, content changed | The report is stored, the inventory is rebuilt, and matching re-runs for that site. |
 | Valid but odd (unexpected format, wild version jumps, values outside normal ranges) | The report is stored and the site is flagged **suspicious report** on the dashboard. |
-| Invalid | Rejected with a bare 4xx and no detail. The rejection is counted per site in our own logs. |
+| From a different address | Refused (`409`) and recorded; the site is flagged **suspicious report**. Its data is never used. |
+| Invalid | Rejected with a bare 4xx and no detail, and logged. If it was correctly signed, the refusal is also recorded on the site and shown on its page. |
 
 The API is rate-limited per key and per source IP, and Cloudflare sits in front of it. HTTPS is required. Plain HTTP is accepted only when `PROTECT_ENV=dev`, for the local Docker demo, where the plugin posts to `http://platform:8000`.
 
@@ -425,6 +431,8 @@ Fix steps come from reviewed templates, never from AI. They live in `platform/ap
 | PHP changed since the previous scan (low weight) | PHP files outside checksum-verified code whose mtime is newer than the previous finished scan, up to 50 paths. The first scan is a silent baseline. The platform drops files in plugin or theme folders whose version changed between reports (an update) | Attackers can fake mtimes. A hint, not proof. (A 7-day window was tried first; on a fresh install it flagged everything) |
 
 - **Batching:** scans run in small batches across cron runs, with a time budget of 10 seconds per run. A cursor is stored, so cheap shared hosts never hit their time limits. A new scan starts at most every 3 hours; **Report now** (and Connect) starts one immediately, for example after cleaning a site. The official checksum lists are cached for 24 hours.
+- **When wordpress.org is slow or down:** each checksum request times out after 5 seconds, and a failed lookup is remembered for an hour, so an outage costs one request per list, not one per file. Finishing a scan makes no new requests (a list that couldn't be fetched is `unavailable`). Without this, an unreachable wordpress.org could push every run past PHP's time limit and stop reports altogether.
+- **Odd file names:** a backslash or control character in a path is sent percent-encoded (a line feed becomes `%0A`), and paths longer than 400 bytes are cut, not dropped. A file named to break the schema would otherwise get every report refused, which an attacker could use to blind Protect.
 - **Findings** (`platform/app/services/findings.py`): every check becomes a finding at level high, medium, low or info, with advice.
   - **High:** core modified or unexpected, a plugin differing from its release, PHP in uploads.
   - **Medium:** `auto_prepend_file`, `.user.ini`, mu-plugins not on the site's allowlist (an admin can mark one "expected").
@@ -446,7 +454,7 @@ Fix steps come from reviewed templates, never from AI. They live in `platform/ap
 - **Tech:** FastAPI and Jinja2 with **autoescape on**; plain HTML forms with no JavaScript. No SPA.
 - **Access in production:** the dashboard sits behind **Cloudflare Access**, using Microsoft Entra ID (Microsoft 365) single sign-on, which enforces MFA. The app validates the `Cf-Access-Jwt-Assertion` token and maps emails to roles. Only `/api/v1/*` bypasses Access.
   - Fallback if Cloudflare Access isn't possible: app login with TOTP 2FA.
-- **Access in the demo:** a local dev login ("pick a team member"). It is enabled only outside prod; in prod `/login` returns 404 and unsigned requests get 401 until Cloudflare Access (P4) is in place. Team members are added with `python -m app.cli add-user` or on the Team page.
+- **Access in the demo:** a local dev login ("pick a team member"). It is enabled only outside prod; in prod `/login` returns 404 and unsigned requests get 401 until Cloudflare Access (P4) is in place. Because it needs no password, dev mode refuses to start unless `PROTECT_BASE_URL` is a local address (localhost, 127.0.0.1, ::1, `*.localhost`, `*.test`), and `/login` answers only requests addressed to such a host. A server started in dev mode by mistake can't hand out admin sign-ins. Team members are added with `python -m app.cli add-user` or on the Team page.
 - **Session:** an HMAC-signed cookie (user id, expiry, CSRF token), HttpOnly, `SameSite=Lax`, Secure in prod, lasting 12 hours. It is **Lax rather than Strict** so the link in an alert email opens the dashboard already signed in. Cross-site posts are still blocked by the CSRF token plus a same-site `Origin` check. Sign-in, sign-out, user changes, site changes and replays are written to `audit_log`.
 - **Pages built in step 8:** overview, incidents, incident, case (checklist, actions, timeline), sites (add site and get an enrollment code), site (inventory, settings, risk tags, rotate code), advisories (replay buttons), team. Manual advisory entry and the review queue come with live feeds (M2).
 - **Roles:** `admin` (users, settings), `responder` (acts on cases), `viewer` (read only).
@@ -535,7 +543,7 @@ The production database is SQLite (WAL mode), accessed through SQLAlchemy 2 with
 
 | Table | Key columns |
 |---|---|
-| `sites` | id, business_name, url, host_type (`managed-wp`/`cpanel`/`vps`/`unknown`), host_name, server_group, risk_tags (json), mu_plugin_allowlist (json), status (`pending`/`active`/`removed`), key_id, public_key, enrolled_at, last_report_at, last_report_id, suspicious (bool), created_at |
+| `sites` | id, business_name, url, host_type (`managed-wp`/`cpanel`/`vps`/`unknown`), host_name, server_group, risk_tags (json), mu_plugin_allowlist (json), status (`pending`/`active`/`removed`), key_id, public_key, enrolled_at, last_report_at, last_report_id, suspicious (bool), refused_at, refused_reason (`format`/`cli`/`site_url_mismatch`), created_at |
 | `enrollment_codes` | code_hash, site_id, expires_at, used_at |
 | `reports` | id, site_id, received_at, content_hash, schema, plugin_version, payload (json), flags (json) |
 | `site_components` | site_id, component_key, version_raw, version_parsed (json), distro, active, first_seen, last_seen, version_since (when the current version was first reported) (the current inventory, rebuilt from the latest report) |

@@ -252,7 +252,54 @@ class Protect_Reporter_Inventory {
 		if ( '' === $relative || in_array( '..', explode( '/', $relative ), true ) ) {
 			return null;
 		}
-		return substr( $relative, 0, 400 );
+		return substr( self::safe_path( $relative ), 0, 400 );
+	}
+
+	/**
+	 * A path in a form the platform accepts. A file name can contain almost anything, and one
+	 * with a backslash or a control character would get the whole report refused (an attacker
+	 * could name a file that way on purpose). Those characters are sent percent-encoded, so a
+	 * line feed becomes %0A. Nothing is dropped.
+	 */
+	public static function safe_path( $path ) {
+		return preg_replace_callback(
+			'/[\x00-\x1f\x7f\\\\]/',
+			function ( $m ) {
+				return '%' . strtoupper( bin2hex( $m[0] ) );
+			},
+			(string) $path
+		);
+	}
+
+	/**
+	 * Keep the encoded report under $max_bytes (the platform refuses bodies over 256 KB). Only
+	 * the lists of example paths in "checks" get shorter, never below one entry, so every
+	 * warning sign and status still arrives; the dashboard just shows fewer example paths.
+	 *
+	 * @param array<string, mixed> $payload From build().
+	 * @return array<string, mixed>
+	 */
+	public static function fit( $payload, $max_bytes ) {
+		foreach ( array( 200, 100, 50, 20, 10, 5, 1 ) as $cap ) {
+			$body = wp_json_encode( $payload, JSON_UNESCAPED_SLASHES );
+			if ( ! is_string( $body ) || strlen( $body ) <= $max_bytes ) {
+				return $payload;
+			}
+			$payload['checks'] = self::cap_paths( $payload['checks'], $cap );
+		}
+		return $payload;
+	}
+
+	private static function cap_paths( $checks, $cap ) {
+		foreach ( array( 'uploads_php', 'recent_php_changes' ) as $key ) {
+			$checks[ $key ] = array_slice( $checks[ $key ], 0, $cap );
+		}
+		$checks['core']['modified']   = array_slice( $checks['core']['modified'], 0, $cap );
+		$checks['core']['unexpected'] = array_slice( $checks['core']['unexpected'], 0, $cap );
+		foreach ( $checks['plugins'] as $i => $plugin ) {
+			$checks['plugins'][ $i ]['modified'] = array_slice( $plugin['modified'], 0, $cap );
+		}
+		return $checks;
 	}
 
 }

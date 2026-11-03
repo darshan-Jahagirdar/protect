@@ -3,12 +3,19 @@
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
+from urllib.parse import urlsplit
 
 from pydantic import SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PLATFORM_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_DB_PATH = PLATFORM_DIR / "data" / "protect.sqlite"
+
+
+def is_local_host(host: str) -> bool:
+    """This machine only: dev mode's password-free sign-in is never reachable from outside."""
+    host = host.lower().strip("[]")
+    return host in ("localhost", "127.0.0.1", "::1") or host.endswith((".localhost", ".test"))
 
 
 class Settings(BaseSettings):
@@ -105,6 +112,13 @@ class Settings(BaseSettings):
                 raise ValueError("PROTECT_SECRET_KEY must be set (32+ chars) in prod")
             if not self.base_url.startswith("https://"):
                 raise ValueError("PROTECT_BASE_URL must use https:// in prod")
+        if self.env == "dev" and not is_local_host(urlsplit(self.base_url).hostname or ""):
+            # Dev mode signs anyone in without a password. A real address means a server was
+            # started in dev mode by mistake: refuse to start rather than open the dashboard.
+            raise ValueError(
+                "PROTECT_ENV=dev has password-free sign-in and only runs with a local "
+                "PROTECT_BASE_URL (localhost or 127.0.0.1). Use PROTECT_ENV=prod on a server."
+            )
         return self
 
 

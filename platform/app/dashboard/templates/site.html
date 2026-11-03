@@ -22,6 +22,9 @@
   <section class="tile"><div class="tile-value small-value"><code>{{ site.key_id or "not enrolled" }}</code></div><div class="tile-label">Key ID</div></section>
 </div>
 
+{% if refused %}
+<div class="flash flash-error">Refused a report at {{ site.refused_at.strftime("%Y-%m-%d %H:%M UTC") }}: {{ refused }}</div>
+{% endif %}
 {% if report and report.flags %}
 <div class="flash flash-error">The last report was flagged: {{ report.flags | join(", ") }}</div>
 {% endif %}

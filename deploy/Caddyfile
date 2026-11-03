@@ -1,0 +1,12 @@
+# Protect production: Caddy terminates TLS and passes everything to the one uvicorn process.
+# server.sh replaces {{DOMAIN}} and writes the result to /etc/caddy/Caddyfile.
+# No access log on purpose: we keep no logs of who calls in (DESIGN.md R5 spirit).
+
+{{DOMAIN}} {
+	encode gzip
+	# The app refuses bodies over 256 KB itself; this stops anything far bigger at the door.
+	request_body {
+		max_size 512KB
+	}
+	reverse_proxy 127.0.0.1:8000
+}

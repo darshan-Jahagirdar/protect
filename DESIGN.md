@@ -639,11 +639,14 @@ A real, empty WordPress site (nothing for sale) on **fully patched** PHP, hosted
 
 ### Production (M2)
 
-- **Server:** one small VM in an India region with an encrypted disk. First choice is Oracle Cloud Always Free (Mumbai or Hyderabad), because it costs nothing. Oracle can reclaim free VMs it considers idle, so the heartbeat (§4.15) doubles as the warning if that happens. Fallback: a small paid VM such as DigitalOcean Bangalore or AWS Mumbai, around $6–10 a month.
-- **Process:** Caddy (TLS) in front of one `uvicorn` process run by systemd.
+- **Server:** AWS Lightsail in Mumbai (ap-south-1): Ubuntu 24.04, 1 GB RAM, 2 vCPU, 40 GB disk (encrypted at rest by AWS), static IP, $7 a month from the new-account credits. Oracle Always Free was the first choice but its sign-up failed (PROGRESS.md decision log, 2026-11-03).
+  - Hardened: automatic security updates (reboot at 03:30 IST only when needed), SSH keys only and no root login, a host firewall allowing only 22/80/443 behind the Lightsail firewall, fail2ban for SSH.
+  - Deployed with `deploy/deploy.sh`, which copies `platform/` from a checkout and runs `deploy/server.sh` on the server. Secrets are generated on the server into `/etc/protect/protect.env` (root:protect, 640) and never leave it.
+- **Process:** Caddy (TLS, Let's Encrypt) in front of one `uvicorn` process run by systemd (`deploy/protect.service`), listening on 127.0.0.1 only. uvicorn trusts `X-Forwarded-*` only from 127.0.0.1 (Caddy), so the API sees the real scheme and caller IP. The code under `/opt/protect` is root-owned and read-only to the service, which can write only `/var/lib/protect`. No access log in Caddy or uvicorn; the app logs only refused requests.
+  - Until `protect.transfunnel.com` exists, the address is `https://13-200-85-221.sslip.io` (sslip.io only turns the name into the IP; it never sees traffic).
   - Use **one worker only**. The scheduler runs inside the app, and more workers would run every job more than once.
 - **Cloudflare:** in front of the domain. Access covers everything except `/api/v1/*`.
-- **Backups:** SQLite backed up continuously with Litestream to an India-region object storage bucket. Restores are tested monthly.
+- **Backups:** today, a daily copy at 02:30 IST (`deploy/backup.sh`, SQLite's backup API) kept 14 days on the server's own disk. Planned: an off-server copy (Lightsail automatic snapshots, or Litestream to a Mumbai S3 bucket). Restores are tested monthly.
 - **Secrets:** in a `.env` readable only by the service user. `.env.example` is committed; `.env` never is.
 
 ---

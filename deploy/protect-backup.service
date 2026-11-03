@@ -1,0 +1,16 @@
+# Daily copy of the Protect database (run by protect-backup.timer). Keeps 14 days on the
+# server. It's on the same disk, so it covers mistakes and corruption, not losing the server.
+
+[Unit]
+Description=Back up the Protect database
+
+[Service]
+Type=oneshot
+User=protect
+Group=protect
+ExecStart=/opt/protect/deploy/backup.sh
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/protect

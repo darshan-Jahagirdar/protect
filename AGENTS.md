@@ -92,6 +92,11 @@ python -m app.cli add-user --email you@example.com --name "You" --role admin   #
 # dashboard: http://127.0.0.1:8000 (dev sign-in: pick a team member)
 # demo alert emails: http://127.0.0.1:8025 (Mailpit)
 
+# production (AWS Lightsail Mumbai; see deploy/). Deploy = copy this checkout's platform/ and restart.
+deploy/deploy.sh ubuntu@13.200.85.221 13-200-85-221.sslip.io   # first time and every update
+ssh -i ~/.ssh/protect_aws ubuntu@13.200.85.221                 # then: journalctl -u protect -n 50
+ssh -i ~/.ssh/protect_aws ubuntu@13.200.85.221 'cd /opt/protect/platform && sudo -u protect sh -c "set -a; . /etc/protect/protect.env; .venv/bin/python -m app.cli list-sites"'
+
 # plugin checks (no local PHP needed; PHP 7.4 lint proves old-site compatibility)
 for img in php:7.4-cli php:8.3.30-apache; do docker run --rm -v "$PWD/plugin/protect-reporter:/p:ro" $img sh -c 'for f in $(find /p -name "*.php"); do php -l "$f" | grep -v "^No syntax errors"; done'; done
 cd platform && uv run pytest tests/test_plugin_rules.py          # static rule checks (banned calls, no inbound endpoints, ...)

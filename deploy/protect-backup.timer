@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily Protect database backup
+
+[Timer]
+# 21:00 UTC = 02:30 IST, an hour before automatic security reboots.
+OnCalendar=*-*-* 21:00:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

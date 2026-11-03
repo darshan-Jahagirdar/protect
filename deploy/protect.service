@@ -1,0 +1,35 @@
+# Protect platform. ONE uvicorn worker only: the scheduler runs in-process, and more workers
+# would run every job more than once. Listens on localhost; Caddy is the only way in.
+# Caddy connects from 127.0.0.1, so only its X-Forwarded-* headers are trusted.
+
+[Unit]
+Description=Protect platform
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=protect
+Group=protect
+WorkingDirectory=/opt/protect/platform
+EnvironmentFile=/etc/protect/protect.env
+ExecStartPre=/opt/protect/platform/.venv/bin/alembic upgrade head
+ExecStart=/opt/protect/platform/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1 --proxy-headers --forwarded-allow-ips 127.0.0.1 --no-access-log
+Restart=on-failure
+RestartSec=5
+
+# The code is root-owned and read-only to the service; it can write only its data folder.
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/protect
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryMax=600M
+
+[Install]
+WantedBy=multi-user.target

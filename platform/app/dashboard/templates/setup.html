@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Set up sign-in · Protect{% endblock %}
+{% block content %}
+{% if invalid %}
+<h1>This setup link doesn't work</h1>
+<p>It may have been used already, or it's more than a day old. Ask an admin for a new one.</p>
+<p><a href="/login">Go to sign in</a></p>
+{% else %}
+<h1>Set up your sign-in</h1>
+<p>Hi {{ user.display_name }}. Two steps, then you're in. You'll sign in as <strong>{{ user.email }}</strong>.</p>
+
+<form method="post" class="card form-grid narrow-form">
+  <h2>1. Choose a password</h2>
+  <p class="muted">At least 12 characters. A short sentence is easiest to remember.</p>
+  <input type="email" name="username" value="{{ user.email }}" autocomplete="username" hidden>
+  <label>Password <input type="password" name="password" required minlength="12" maxlength="200" autocomplete="new-password"></label>
+  <label>Same password again <input type="password" name="confirm" required minlength="12" maxlength="200" autocomplete="new-password"></label>
+
+  <h2>2. Add Protect to your authenticator app</h2>
+  <p class="muted">Open Google Authenticator or Microsoft Authenticator on your phone, tap <strong>+</strong>, and scan this code.</p>
+  <img class="qr" src="{{ qr }}" alt="QR code for your authenticator app" width="240" height="240">
+  <p class="muted">Can't scan? Choose "enter a setup key" in the app and type: <code class="code-big">{{ secret }}</code></p>
+  <label>The 6-digit code the app now shows
+    <input type="text" name="code" required inputmode="numeric" pattern="[0-9 ]{6,7}" maxlength="7" autocomplete="one-time-code" placeholder="123456">
+  </label>
+  <button class="button-primary" type="submit">Finish setup</button>
+</form>
+{% endif %}
+{% endblock %}

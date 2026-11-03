@@ -399,7 +399,16 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(320), unique=True)
     display_name: Mapped[str] = mapped_column(String(100))
     role: Mapped[UserRole] = mapped_column(_enum(UserRole), default=UserRole.VIEWER)
-    totp_secret_enc: Mapped[str | None] = mapped_column(String(200))  # fallback login only
+    # Sign-in (app/dashboard/credentials.py). All empty until the person opens their setup link.
+    password_hash: Mapped[str | None] = mapped_column(String(200))
+    totp_secret_enc: Mapped[str | None] = mapped_column(String(200))  # encrypted, never plain
+    totp_last_step: Mapped[int | None] = mapped_column(Integer)  # stops a code being reused
+    failed_logins: Mapped[int] = mapped_column(Integer, default=0)
+    locked_until: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    setup_token_hash: Mapped[str | None] = mapped_column(String(64), unique=True)
+    setup_expires_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    # In the session cookie; bumping it (password reset) signs the person out everywhere.
+    session_version: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = _created()
     disabled_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
 

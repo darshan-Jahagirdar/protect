@@ -5,8 +5,10 @@
 - The cookie is SameSite=Lax, HttpOnly, and Secure in prod. Lax (not Strict) so the link in an
   alert email opens the dashboard signed in; cross-site POSTs are still blocked by the CSRF
   token plus the same-site Origin check.
-- Sign-in in dev is "pick a team member" (local demo only). Production sign-in is Cloudflare
-  Access with Microsoft Entra SSO (PROGRESS.md P4); until then prod has no sign-in at all.
+- Sign-in is email + password + authenticator code (credentials.py, routes.py). The local
+  demo also offers "pick a team member", only on a local address and never in prod.
+- The cookie carries the user's session_version; a password reset bumps it, which signs that
+  person out everywhere.
 """
 
 import base64
@@ -44,11 +46,13 @@ class NotSignedIn(Exception):
 @dataclass(frozen=True)
 class SessionData:
     user_id: int
+    version: int
     expires: int
     csrf: str
 
 
-def _key(settings: Settings) -> bytes:
+def secret_bytes(settings: Settings) -> bytes:
+    """PROTECT_SECRET_KEY as bytes (a random per-process key in dev/test without one)."""
     if settings.secret_key is not None:
         return settings.secret_key.get_secret_value().encode()
     if settings.is_prod:
@@ -57,12 +61,14 @@ def _key(settings: Settings) -> bytes:
 
 
 def _sign(settings: Settings, payload: bytes) -> str:
-    return hmac.new(_key(settings), payload, hashlib.sha256).hexdigest()
+    return hmac.new(secret_bytes(settings), payload, hashlib.sha256).hexdigest()
 
 
-def encode_session(settings: Settings, user_id: int, now: float | None = None) -> str:
+def encode_session(
+    settings: Settings, user_id: int, now: float | None = None, version: int = 1
+) -> str:
     data = SessionData(
-        user_id, int((now or time.time()) + SESSION_SECONDS), secrets.token_urlsafe(24)
+        user_id, version, int((now or time.time()) + SESSION_SECONDS), secrets.token_urlsafe(24)
     )
     payload = base64.urlsafe_b64encode(json.dumps(data.__dict__).encode())
     return f"{payload.decode()}.{_sign(settings, payload)}"
@@ -85,10 +91,10 @@ def decode_session(
     return data
 
 
-def set_session_cookie(response, settings: Settings, user_id: int) -> None:  # type: ignore[no-untyped-def]
+def set_session_cookie(response, settings: Settings, user: User) -> None:  # type: ignore[no-untyped-def]
     response.set_cookie(
         COOKIE,
-        encode_session(settings, user_id),
+        encode_session(settings, user.id, version=user.session_version),
         max_age=SESSION_SECONDS,
         httponly=True,
         samesite="lax",
@@ -121,7 +127,12 @@ def current_viewer(request: Request, session: Annotated[Session, Depends(get_ses
     settings: Settings = request.app.state.settings
     data = decode_session(settings, request.cookies.get(COOKIE))
     user = session.get(User, data.user_id) if data else None
-    if data is None or user is None or user.disabled_at is not None:
+    if (
+        data is None
+        or user is None
+        or user.disabled_at is not None
+        or user.session_version != data.version
+    ):
         raise NotSignedIn(request.url.path)
     request.state.viewer = Viewer(user, data.csrf)
     return request.state.viewer

@@ -24,7 +24,26 @@ from app.dashboard.auth import (
     check_csrf,
     clear_session_cookie,
     safe_next,
+    secret_bytes,
     set_session_cookie,
+)
+from app.dashboard.credentials import (
+    PASSWORD_MAX,
+    check_totp,
+    decrypt_secret,
+    encrypt_secret,
+    hash_password,
+    is_locked,
+    new_totp_secret,
+    otpauth_uri,
+    password_problem,
+    qr_data_uri,
+    record_failure,
+    setup_link,
+    setup_token_matches,
+    start_setup,
+    token_hash,
+    verify_password,
 )
 from app.db import get_session, utcnow
 from app.enums import (
@@ -84,6 +103,9 @@ MESSAGES = {  # fixed texts only: nothing user-supplied is reflected from the UR
     "replayed": "Advisory replayed and matched against every active site.",
     "replayed_none": "Advisory replayed: no active site is affected.",
     "user_added": "Team member added.",
+    "signed_up": (
+        "You're set up. Next time, sign in with your email, password and the code from your app."
+    ),
     "user_disabled": "Team member disabled.",
     "closed": "Incident closed.",
     "observed": "Public homepage viewed.",
@@ -114,45 +136,198 @@ def _get(session: Session, model: type, key: object) -> Any:
     return obj
 
 
-def _dev_only(request: Request) -> None:
+def _dev_allowed(request: Request) -> bool:
+    """The password-free demo sign-in: never in prod, and only when the browser talks to this
+    machine directly. A request through a public address (a server left in dev mode) gets
+    nothing."""
     settings = request.app.state.settings
     if settings.is_prod:
-        raise HTTPException(status_code=404)  # prod signs in through Cloudflare Access (P4)
-    # Password-free sign-in only when the browser talks to this machine directly. A request
-    # that arrives through a public address (a server left in dev mode) gets nothing.
+        return False
     host = request.url.hostname or ""
-    if not is_local_host(host) and not (settings.env == "test" and host == "testserver"):
+    return is_local_host(host) or (settings.env == "test" and host == "testserver")
+
+
+def _dev_only(request: Request) -> None:
+    if not _dev_allowed(request):
         raise HTTPException(status_code=404)
+
+
+def _same_origin(request: Request) -> None:
+    """Sign-in forms have no session yet, so no CSRF token: refuse posts from other sites."""
+    origin = request.headers.get("origin")
+    if origin is not None and origin.split("://", 1)[-1] != request.url.netloc:
+        raise HTTPException(status_code=403)
+
+
+def _attempt_allowed(request: Request) -> None:
+    """At most a few sign-in and setup attempts per address, on top of the per-account pause."""
+    ip = request.client.host if request.client else "unknown"
+    if not request.app.state.login_limiter.allow(ip):
+        raise HTTPException(status_code=429)
 
 
 # --- Sign in / out ------------------------------------------------------------------------
 
+SIGN_IN_FAILED = (
+    "That didn't work. Check your email, password and the current code from your app. "
+    "After 5 wrong tries the account pauses for 15 minutes."
+)
 
-@router.get("/login", response_class=HTMLResponse, dependencies=[Depends(_dev_only)])
+
+def _login_page(
+    request: Request, session: Session, next: str, error: str | None = None, email: str = ""
+) -> HTMLResponse:
+    dev = _dev_allowed(request)
+    users = (
+        session.scalars(
+            select(User).where(User.disabled_at.is_(None)).order_by(User.display_name)
+        ).all()
+        if dev
+        else []
+    )
+    ctx = {"dev": dev, "users": users, "next": safe_next(next), "error": error, "email": email}
+    return page(request, "login.html", ctx, status=400 if error else 200)
+
+
+@router.get("/login", response_class=HTMLResponse)
 def login_page(request: Request, session: SessionDep, next: str = "/") -> HTMLResponse:
-    users = session.scalars(
-        select(User).where(User.disabled_at.is_(None)).order_by(User.display_name)
-    ).all()
-    return page(request, "login.html", {"users": users, "next": safe_next(next)})
+    return _login_page(request, session, next)
 
 
-@router.post("/login", dependencies=[Depends(_dev_only)])
+@router.post("/login", response_class=HTMLResponse)
 def login(
+    request: Request,
+    session: SessionDep,
+    email: Annotated[str, Form(max_length=320)],
+    password: Annotated[str, Form(max_length=PASSWORD_MAX)],
+    code: Annotated[str, Form(max_length=12)],
+    next: Annotated[str, Form(max_length=500)] = "/",
+) -> Response:
+    _same_origin(request)
+    _attempt_allowed(request)
+    settings = request.app.state.settings
+    user = session.scalar(select(User).where(User.email == email.strip().lower()))
+    # Always run the password check (even for an unknown email) so timing reveals nothing.
+    password_ok = verify_password(user.password_hash if user else None, password)
+    if user is None or user.disabled_at is not None or is_locked(user):
+        return _login_page(request, session, next, SIGN_IN_FAILED, email)
+    secret = decrypt_secret(secret_bytes(settings), user.totp_secret_enc)
+    step = check_totp(secret, code, user.totp_last_step) if password_ok and secret else None
+    if step is None or user.password_hash is None:
+        record_failure(user)
+        _audit(session, user, "login_failed")
+        session.commit()
+        return _login_page(request, session, next, SIGN_IN_FAILED, email)
+    user.failed_logins = 0
+    user.locked_until = None
+    user.totp_last_step = step
+    _audit(session, user, "login", method="password")
+    session.commit()
+    response = RedirectResponse(safe_next(next), status_code=303)
+    set_session_cookie(response, settings, user)
+    return response
+
+
+@router.post("/login/dev", dependencies=[Depends(_dev_only)])
+def login_dev(
     request: Request,
     session: SessionDep,
     user_id: Annotated[int, Form()],
     next: Annotated[str, Form()] = "/",
 ) -> Response:
-    origin = request.headers.get("origin")
-    if origin is not None and origin.split("://", 1)[-1] != request.url.netloc:
-        raise HTTPException(status_code=403)
+    _same_origin(request)
     user = session.get(User, user_id)
     if user is None or user.disabled_at is not None:
         raise HTTPException(status_code=403)
     _audit(session, user, "login", method="dev")
     session.commit()
     response = RedirectResponse(safe_next(next), status_code=303)
-    set_session_cookie(response, request.app.state.settings, user.id)
+    set_session_cookie(response, request.app.state.settings, user)
+    return response
+
+
+# --- First-time setup (password + authenticator) -------------------------------------------
+
+
+def _setup_user(session: Session, token: str) -> User | None:
+    if not token or len(token) > 100:
+        return None
+    user = session.scalar(select(User).where(User.setup_token_hash == token_hash(token)))
+    if user is None or user.disabled_at is not None or not setup_token_matches(user, token):
+        return None
+    return user
+
+
+def _setup_page(
+    request: Request, user: User | None, secret: str | None = None, error: str | None = None
+) -> HTMLResponse:
+    if user is None or secret is None:
+        response = page(request, "setup.html", {"invalid": True}, status=404)
+    else:
+        ctx = {
+            "invalid": False,
+            "user": user,
+            "qr": qr_data_uri(otpauth_uri(secret, user.email)),
+            "secret": " ".join(secret[i : i + 4] for i in range(0, len(secret), 4)),
+            "error": error,
+        }
+        response = page(request, "setup.html", ctx, status=400 if error else 200)
+    response.headers["Cache-Control"] = "no-store"  # the page shows the authenticator secret
+    return response
+
+
+@router.get("/setup/{token}", response_class=HTMLResponse)
+def setup_page(request: Request, token: str, session: SessionDep) -> HTMLResponse:
+    user = _setup_user(session, token)
+    if user is None:
+        return _setup_page(request, None)
+    key = secret_bytes(request.app.state.settings)
+    secret = decrypt_secret(key, user.totp_secret_enc)
+    if secret is None:  # first visit; later visits reuse it so a scanned code keeps working
+        secret = new_totp_secret()
+        user.totp_secret_enc = encrypt_secret(key, secret)
+        session.commit()
+    return _setup_page(request, user, secret)
+
+
+@router.post("/setup/{token}", response_class=HTMLResponse)
+def setup(
+    request: Request,
+    token: str,
+    session: SessionDep,
+    password: Annotated[str, Form(max_length=PASSWORD_MAX + 1)],
+    confirm: Annotated[str, Form(max_length=PASSWORD_MAX + 1)],
+    code: Annotated[str, Form(max_length=12)],
+) -> Response:
+    _same_origin(request)
+    _attempt_allowed(request)
+    settings = request.app.state.settings
+    user = _setup_user(session, token)
+    secret = decrypt_secret(secret_bytes(settings), user.totp_secret_enc) if user else None
+    if user is None or secret is None:
+        return _setup_page(request, None)
+    problem = password_problem(password, confirm, user.email)
+    if problem:
+        return _setup_page(request, user, secret, problem)
+    step = check_totp(secret, code, None)
+    if step is None:
+        return _setup_page(
+            request,
+            user,
+            secret,
+            "That code didn't match. Use the newest code in the app, and check the phone's "
+            "time is set automatically.",
+        )
+    user.password_hash = hash_password(password)
+    user.totp_last_step = step
+    user.setup_token_hash = None
+    user.setup_expires_at = None
+    user.failed_logins = 0
+    user.locked_until = None
+    _audit(session, user, "sign_in_set_up")
+    session.commit()
+    response = RedirectResponse("/?msg=signed_up", status_code=303)
+    set_session_cookie(response, settings, user)
     return response
 
 
@@ -615,14 +790,25 @@ def advisory_replay(
 # --- Team members ------------------------------------------------------------------------------
 
 
+def _users_page(
+    request: Request, session: Session, link: str | None = None, link_for: User | None = None
+) -> HTMLResponse:
+    users = session.scalars(select(User).order_by(User.display_name)).all()
+    ctx = {"users": users, "roles": list(UserRole), "link": link, "link_for": link_for}
+    response = page(request, "users.html", ctx)
+    if link:
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 @router.get("/users", response_class=HTMLResponse)
 def users_page(request: Request, viewer: AdminDep, session: SessionDep) -> HTMLResponse:
-    users = session.scalars(select(User).order_by(User.display_name)).all()
-    return page(request, "users.html", {"users": users, "roles": list(UserRole)})
+    return _users_page(request, session)
 
 
-@router.post("/users", dependencies=CSRF)
+@router.post("/users", response_class=HTMLResponse, dependencies=CSRF)
 def add_user(
+    request: Request,
     viewer: AdminDep,
     session: SessionDep,
     email: Annotated[str, Form(max_length=320, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")],
@@ -630,6 +816,7 @@ def add_user(
     role: Annotated[UserRole, Form()],
 ) -> Response:
     user = User(email=email.strip().lower(), display_name=display_name.strip(), role=role)
+    token = start_setup(user)
     session.add(user)
     try:
         session.flush()
@@ -638,7 +825,21 @@ def add_user(
         raise HTTPException(status_code=400) from e
     _audit(session, viewer.user, "user_added", user.email, role=role.value)
     session.commit()
-    return RedirectResponse("/users?msg=user_added", status_code=303)
+    link = setup_link(request.app.state.settings.base_url, token)
+    return _users_page(request, session, link, user)
+
+
+@router.post("/users/{user_id}/reset", response_class=HTMLResponse, dependencies=CSRF)
+def reset_user(request: Request, user_id: int, viewer: AdminDep, session: SessionDep) -> Response:
+    """New setup link: clears the password and authenticator and signs the person out."""
+    user = _get(session, User, user_id)
+    if user.id == viewer.user.id or user.disabled_at is not None:
+        raise HTTPException(status_code=400)  # your own reset is on the server: app.cli reset-user
+    token = start_setup(user)
+    _audit(session, viewer.user, "sign_in_reset", user.email)
+    session.commit()
+    link = setup_link(request.app.state.settings.base_url, token)
+    return _users_page(request, session, link, user)
 
 
 @router.post("/users/{user_id}/disable", dependencies=CSRF)
@@ -647,6 +848,8 @@ def disable_user(user_id: int, viewer: AdminDep, session: SessionDep) -> Respons
     if user.id == viewer.user.id:
         raise HTTPException(status_code=400)  # don't lock yourself out
     user.disabled_at = utcnow()
+    user.setup_token_hash = None  # an unused setup link stops working too
+    user.setup_expires_at = None
     _audit(session, viewer.user, "user_disabled", user.email)
     session.commit()
     return RedirectResponse("/users?msg=user_disabled", status_code=303)

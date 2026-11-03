@@ -118,7 +118,8 @@ def test_dev_sign_in_only_answers_on_a_local_address(db_url: str) -> None:
     local = TestClient(app, base_url="http://127.0.0.1:8000")
     assert local.get("/login").status_code == 200
     # The same server reached through a public name (a proxy in front of it): no sign-in.
+    assert "Local demo" in local.get("/login").text
     public = TestClient(app, base_url="https://protect.transfunnel.com")
-    assert public.get("/login").status_code == 404
-    assert public.post("/login", data={"user_id": "1"}).status_code == 404
+    assert "Local demo" not in public.get("/login").text  # only the password sign-in
+    assert public.post("/login/dev", data={"user_id": "1"}).status_code == 404
     engine.dispose()

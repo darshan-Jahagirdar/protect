@@ -58,7 +58,7 @@ If a change would break any of these, **stop and ask the user**. Don't look for 
 
 ## Platform coding rules (`platform/`)
 
-- **Stack:** Python 3.12, managed with **uv**. FastAPI, Jinja2, SQLAlchemy 2, Alembic, pydantic v2, APScheduler, httpx, PyNaCl, PyYAML, python-multipart. Pages are plain HTML forms with no JavaScript; if a page ever needs HTMX, serve it locally (no CDN) and keep the CSP strict.
+- **Stack:** Python 3.12, managed with **uv**. FastAPI, Jinja2, SQLAlchemy 2, Alembic, pydantic v2, APScheduler, httpx, PyNaCl, PyYAML, python-multipart, segno (QR codes for sign-in setup). Pages are plain HTML forms with no JavaScript; if a page ever needs HTMX, serve it locally (no CDN) and keep the CSP strict.
 - **AI providers** are called over plain REST with httpx from `app/ai/providers.py` only. No vendor SDKs.
 - **Style:** type hints everywhere, small modules, and no framework magic you'd have to explain.
 - **Migrations:** every schema change is an Alembic migration.
@@ -88,7 +88,8 @@ uv run uvicorn app.main:app --reload --port 8000           # or use the `platfor
 python -m app.cli add-site | new-code | list-sites
 python -m app.cli replay-advisory php2shell|drill-plugin    # match now; alerts go out on the next scheduler run
 python -m app.cli list-incidents | send-alerts | send-digest | ack-incident <id>
-python -m app.cli add-user --email you@example.com --name "You" --role admin   # dashboard sign-in
+python -m app.cli add-user --email you@example.com --name "You" --role admin   # prints a one-time setup link
+python -m app.cli reset-user --email you@example.com                          # lost phone or password: new setup link
 # dashboard: http://127.0.0.1:8000 (dev sign-in: pick a team member)
 # demo alert emails: http://127.0.0.1:8025 (Mailpit)
 

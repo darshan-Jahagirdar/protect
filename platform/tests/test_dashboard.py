@@ -65,7 +65,7 @@ def test_safe_next_blocks_open_redirects(raw: str | None, safe: str) -> None:
 def test_login_sets_a_lax_httponly_cookie(dash: Dash) -> None:
     user = dash.add_user(UserRole.ADMIN, "Darshan")
     r = dash.client.post(
-        "/login", data={"user_id": user.id, "next": "//evil.example"}, follow_redirects=False
+        "/login/dev", data={"user_id": user.id, "next": "//evil.example"}, follow_redirects=False
     )
     assert r.status_code == 303
     assert r.headers["location"] == "/"
@@ -88,7 +88,7 @@ def test_disabled_user_is_signed_out(dash: Dash) -> None:
         s.get(User, user.id).disabled_at = utcnow()  # type: ignore[union-attr]
         s.commit()
     assert dash.client.get("/", follow_redirects=False).status_code == 303
-    r = dash.client.post("/login", data={"user_id": user.id}, follow_redirects=False)
+    r = dash.client.post("/login/dev", data={"user_id": user.id}, follow_redirects=False)
     assert r.status_code == 403
 
 
@@ -373,7 +373,8 @@ def test_team_management(dash: Dash) -> None:
         {"email": "New@Demo.test", "display_name": "New Person", "role": "viewer"},
         page="/users",
     )
-    assert r.status_code == 303
+    # The page answers directly (not a redirect) so the one-time setup link isn't in a URL.
+    assert r.status_code == 200 and "/setup/" in r.text
     with dash.session() as s:
         new = s.query(User).filter_by(email="new@demo.test").one()
     assert dash.post(f"/users/{new.id}/disable", page="/users").status_code == 303

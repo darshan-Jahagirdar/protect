@@ -277,6 +277,8 @@ def test_dashboard_needs_sign_in(db_url: str) -> None:
 
 def test_prod_has_no_dev_sign_in(db_url: str) -> None:
     c = make_dash(db_url, env="prod").client
-    assert c.get("/login").status_code == 404
-    assert c.post("/login", data={"user_id": 1}).status_code == 404
-    assert c.get("/incidents/anything").status_code == 401
+    login = c.get("/login")
+    assert login.status_code == 200 and "Local demo" not in login.text
+    assert c.post("/login/dev", data={"user_id": 1}).status_code == 404
+    r = c.get("/incidents/anything", follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == "/login?next=/incidents/anything"

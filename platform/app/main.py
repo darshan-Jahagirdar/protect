@@ -15,6 +15,7 @@ from fastapi.responses import RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from app.ai.providers import provider_for
+from app.api.ratelimit import RateLimiter
 from app.api.routes import Limiters
 from app.api.routes import router as api_router
 from app.dashboard.auth import NotSignedIn
@@ -60,6 +61,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.state.settings = settings
     app.state.limiters = Limiters.from_settings(settings)
+    # Sign-in and setup attempts per address (each account also pauses after 5 wrong tries).
+    app.state.login_limiter = RateLimiter(20, 600)
     app.state.observe = observe  # swappable in tests; the real one makes one GET /
     app.state.ai_provider_factory = provider_for  # swappable in tests (fake provider)
     app.add_middleware(SecurityHeadersMiddleware, hsts=settings.is_prod)
@@ -67,8 +70,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.exception_handler(NotSignedIn)
     async def _not_signed_in(request: Request, exc: NotSignedIn) -> Response:
-        if settings.is_prod:  # prod sign-in is Cloudflare Access (P4); nothing to redirect to yet
-            return Response(status_code=401)
         target = "/login" + (f"?next={quote(exc.next_path)}" if exc.next_path != "/" else "")
         return RedirectResponse(target, status_code=303)
 

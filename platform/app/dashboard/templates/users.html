@@ -3,9 +3,16 @@
 {% block content %}
 <h1>Team</h1>
 <p class="muted">Our own team only. Client contacts are never stored in Protect.</p>
+{% if link %}
+<div class="flash">
+  <strong>Setup link for {{ link_for.display_name }}</strong> (works once, for 24 hours; shown only now):
+  <p><code class="setup-link">{{ link }}</code></p>
+  Send it to {{ link_for.display_name }} only, for example in a direct Teams message. They choose a password and add Protect to their authenticator app.
+</div>
+{% endif %}
 <div class="table-wrap">
 <table>
-  <thead><tr><th>Name</th><th>Email</th><th>Role</th><th></th></tr></thead>
+  <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Sign-in</th><th></th></tr></thead>
   <tbody>
   {% for u in users %}
     <tr>
@@ -13,7 +20,17 @@
       <td>{{ u.email }}</td>
       <td>{{ u.role.value }}{% if u.disabled_at %} · disabled{% endif %}</td>
       <td>
+        {% if u.disabled_at %}<span class="muted">—</span>
+        {% elif u.password_hash %}set up
+        {% elif u.setup_token_hash %}<span class="muted">waiting for setup</span>
+        {% else %}<span class="muted">none</span>{% endif %}
+      </td>
+      <td>
         {% if not u.disabled_at and u.id != viewer.user.id %}
+        <form method="post" action="/users/{{ u.id }}/reset" class="inline-form">
+          <input type="hidden" name="csrf_token" value="{{ viewer.csrf }}">
+          <button class="link-button" type="submit">New setup link</button>
+        </form>
         <form method="post" action="/users/{{ u.id }}/disable" class="inline-form">
           <input type="hidden" name="csrf_token" value="{{ viewer.csrf }}">
           <button class="link-button" type="submit">Disable</button>

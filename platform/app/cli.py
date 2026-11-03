@@ -10,6 +10,7 @@
     uv run python -m app.cli send-digest
     uv run python -m app.cli ack-incident <incident id>
     uv run python -m app.cli add-user --email you@example.com --name "You" --role admin
+    uv run python -m app.cli reset-user --email you@example.com   # lost phone or password
 
 In the Docker demo:  docker compose -f docker/compose.yaml exec platform python -m app.cli ...
 """
@@ -20,6 +21,7 @@ import sys
 from sqlalchemy import select
 
 from app.alerts.mailer import mailer_for
+from app.dashboard.credentials import SETUP_LINK_HOURS, setup_link, start_setup
 from app.db import SessionLocal
 from app.enums import HostType, UserRole
 from app.models import Incident, Site, User
@@ -68,6 +70,9 @@ def main(argv: list[str] | None = None) -> int:
     user.add_argument("--email", required=True)
     user.add_argument("--name", required=True)
     user.add_argument("--role", choices=[r.value for r in UserRole], default="responder")
+
+    reset = sub.add_parser("reset-user", help="new setup link (lost phone or password)")
+    reset.add_argument("--email", required=True)
 
     args = parser.parse_args(argv)
     settings = get_settings()
@@ -126,10 +131,27 @@ def main(argv: list[str] | None = None) -> int:
             if session.scalar(select(User).where(User.email == email)):
                 print(f"{email} already exists", file=sys.stderr)
                 return 1
-            session.add(User(email=email, display_name=args.name.strip(), role=UserRole(args.role)))
+            new_user = User(email=email, display_name=args.name.strip(), role=UserRole(args.role))
+            token = start_setup(new_user)
+            session.add(new_user)
             session.commit()
             print(f"added {args.name} <{email}> as {args.role}")
+            _print_setup_link(settings.base_url, token)
+        elif args.cmd == "reset-user":
+            found = session.scalar(select(User).where(User.email == args.email.strip().lower()))
+            if found is None or found.disabled_at is not None:
+                print(f"no active user {args.email}", file=sys.stderr)
+                return 1
+            token = start_setup(found)
+            session.commit()
+            print(f"{found.email}: password and authenticator cleared, signed out everywhere")
+            _print_setup_link(settings.base_url, token)
     return 0
+
+
+def _print_setup_link(base_url: str, token: str) -> None:
+    print(f"setup link (works once, for {SETUP_LINK_HOURS} hours): {setup_link(base_url, token)}")
+    print("Send it to that person only, e.g. in a direct Teams message.")
 
 
 def _print_incident(incident: Incident) -> None:

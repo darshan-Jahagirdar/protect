@@ -36,7 +36,7 @@ class Dash:
     def login(self, role: UserRole = UserRole.RESPONDER, name: str | None = None) -> User:
         user = self.add_user(role, name)
         r = self.client.post(
-            "/login", data={"user_id": user.id, "next": "/"}, follow_redirects=False
+            "/login/dev", data={"user_id": user.id, "next": "/"}, follow_redirects=False
         )
         assert r.status_code == 303, r.text
         return user

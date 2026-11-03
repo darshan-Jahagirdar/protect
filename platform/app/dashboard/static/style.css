@@ -178,3 +178,7 @@ textarea {
   border-radius: 6px; padding: 10px; font: inherit; line-height: 1.5;
 }
 .wide-form { max-width: 760px; }
+.narrow-form { max-width: 420px; }
+.narrow-form h2 { margin: 8px 0 0; font-size: 16px; }
+.qr { background: #fff; border-radius: 8px; padding: 8px; }
+.setup-link { word-break: break-all; }

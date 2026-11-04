@@ -1,13 +1,14 @@
-# Handoff — 2026-11-03
+# Handoff — 2026-11-04
 
 Session summary for whoever picks up Protect next (a new Claude Code session, or a person). Read this first, then [AGENTS.md](AGENTS.md) (rules), [DESIGN.md](DESIGN.md) (what and why) and [PROGRESS.md](PROGRESS.md) (status board, every decision, work log).
 
 ## Where things stand
 
+- **Next step: live advisory feeds (P1).** Without them the platform knows only the two hand-loaded advisories (PHP2Shell and the drill), so it can't catch a newly announced flaw. The plan is in DESIGN.md §4.3. The user decided on 2026-11-04 to build feeds **before** installing the plugin on transfunnel.com.
 - **Milestone 1 (demo):** steps 1–13 are done. The rehearsal ran the full script in 10 minutes on 2026-10-23. Its main finding (a stale "report and public view disagree" banner after each PHP change) is fixed; four small UI findings are still open (PROGRESS.md work log).
-- **Security review (2026-11-03):** found no way to break into a client site or the platform. Fixed five bugs that could make Protect miss or misreport a problem (staging copies reporting as the live site, odd file names blocking reports, wordpress.org outages stalling scans, oversized reports, command-line cron), plus a guard so dev mode's password-free sign-in can't run on a server. Remaining items are under Known issues in PROGRESS.md. **Production still has no dashboard sign-in**, so P4 (or the TOTP fallback) is needed before any real deployment.
+- **Security review (2026-11-03):** found no way to break into a client site or the platform. Fixed five bugs that could make Protect miss or misreport a problem (staging copies reporting as the live site, odd file names blocking reports, wordpress.org outages stalling scans, oversized reports, command-line cron), plus a guard so dev mode's password-free sign-in can't run on a server. Remaining items are under Known issues in PROGRESS.md.
 - **Production (2026-11-03):** live at **https://13-200-85-221.sslip.io** on AWS Lightsail `protect-1` in Mumbai (static IP `13.200.85.221`, Ubuntu 24.04, 1 GB, hardened). Deploy with `deploy/deploy.sh ubuntu@13.200.85.221 13-200-85-221.sslip.io`; log in with `ssh -i ~/.ssh/protect_aws ubuntu@13.200.85.221`. It accepts reports, and the dashboard has sign-in (email + password + authenticator code; add people on the Team page or with `app.cli add-user`, which prints a one-time setup link). Alert email is live via Amazon SES in Mumbai (sandbox: only SES-verified addresses receive it; change recipients or the password with `deploy/set-email.sh` on the server). Still missing before a real site is enrolled: off-server backups, and the 3 DKIM DNS records so alerts stop showing as "Unverified" in Outlook.
-- **Next deployment idea:** the user plans to install the plugin on our own site, transfunnel.com (WordPress 7.1.4 behind Cloudflare). This needs the platform online first (P3, a small India VM), production sign-in (P4), and checking how its host runs WP-Cron (Q11).
+- **First real site, after feeds:** our own transfunnel.com (WordPress 7.1.4 behind Cloudflare). Ready: the plugin zip (`plugin/build-zip.sh`) and the dev team note "Connecting transfunnel.com to Protect" in Claude Docs (https://claude.ai/artifact/KTG1wEmr6XydsAH54r84fC): what it sends, why it's safe, questions (incl. how its host runs WP-Cron, Q11), DNS records (`protect.transfunnel.com` A record + 3 SES DKIM CNAMEs) and install steps. Once feeds exist, update the note's summary to say so.
 - **Tests:** 518 pass (`cd platform && uv run pytest`), and ruff is clean. The plugin lints clean on PHP 7.4 and 8.3, and `plugin/tests/logic-check.php` passes on PHP 7.4.
 - **GitHub:** `darshan-Jahagirdar/protect` (public, by the owner's choice), branch `main`, everything pushed. Commits and pushes happen only when the user asks.
 - **Claude Docs aligned with the build on 2026-10-23:** [GTM](https://claude.ai/artifact/CqXX1YdKiuXtyU1PQ83UuM), [Build plan](https://claude.ai/artifact/M3mtBXQqBcez9xheFecvae), [Data and compliance](https://claude.ai/artifact/S2wkNVaAxjNRD7bPVi3rgF). Read them with the Claude Docs connector, not a web fetch.
@@ -39,7 +40,7 @@ Everything runs locally in Docker (`docker compose -f docker/compose.yaml ps` �
 | Alert emails | http://127.0.0.1:8025 | Mailpit |
 
 **State of the demo data:**
-- **Docker is stopped** (volumes kept). Start without resetting PHP: `WP_PHP_IMAGE=php:8.3.36-apache docker compose -f docker/compose.yaml up -d --build`.
+- **Docker is running** (stop with `docker compose -f docker/compose.yaml down`; volumes kept). Start again without resetting PHP: `WP_PHP_IMAGE=php:8.3.36-apache docker compose -f docker/compose.yaml up -d --build`.
 - The site currently serves **PHP 8.3.36** (patched).
 - **All PHP2Shell incidents are closed** (step 9, the step 11 rollback test, the step 13 rehearsal, and the stale-banner fix check).
 - The **[DRILL] Hello Dolly P4 incident is open.**
@@ -64,7 +65,7 @@ Everything runs locally in Docker (`docker compose -f docker/compose.yaml ps` �
    - **No backup person yet (Q6):** escalation re-alerts the primary.
    - **Unknown whether the TransFunnel domain is on Cloudflare (Q4):** this is needed for production sign-in.
    - **Microsoft Graph email (Q5):** needs an app registration from the IT team.
-4. **Milestone 2 (production)** hasn't started: live feeds, Graph email, India VM, Cloudflare Access, heartbeat, security review, runbooks, and rollout to client sites with written authorization.
+4. **Milestone 2 (production)** is under way: the server, sign-in and SES email are live (P3 mostly done). Still to do: live feeds (P1, next), off-server backups, Graph email, heartbeat, security review, runbooks, and rollout to client sites with written authorization.
 
 ## Step 13: suggested rehearsal
 

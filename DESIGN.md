@@ -343,7 +343,7 @@ An incident **closes** when every case is `verified`, `not_affected`, `false_pos
 - **Acknowledgement:** belongs to the incident (an `acknowledged` timeline event). It counts even if it happens before any email is sent. Each incident gets at most one escalation.
 - **Daily digest:** at 03:30 UTC (09:00 IST) for open P3/P4 incidents. Nothing is sent when there are none.
 - **Message wording:** built only from a site-free summary (`IncidentSummary`), so site names and URLs can't leak into an email. Tests check every message against every site.
-- **Email transports:** `smtp` (Mailpit in the demo), `console`, and `graph` (Microsoft Graph, milestone 2).
+- **Email transports:** `smtp` (Mailpit in the demo, Amazon SES in production for now), `console`, and `graph` (Microsoft Graph, milestone 2).
 - **CLI:** `send-alerts`, `send-digest` and `ack-incident` run the same logic by hand.
 - **Incident page:** `/incidents/<id>` with the "I'm on it" button. It answers only outside prod until the dashboard login exists (step 8). Form posts are refused if their `Origin` is another site or `null`.
 
@@ -653,6 +653,7 @@ A real, empty WordPress site (nothing for sale) on **fully patched** PHP, hosted
   - Use **one worker only**. The scheduler runs inside the app, and more workers would run every job more than once.
 - **Cloudflare:** in front of the domain. Access covers everything except `/api/v1/*`.
 - **Backups:** today, a daily copy at 02:30 IST (`deploy/backup.sh`, SQLite's backup API) kept 14 days on the server's own disk. Planned: an off-server copy (Lightsail automatic snapshots, or Litestream to a Mumbai S3 bucket). Restores are tested monthly.
+- **Email (for now):** Amazon SES in Mumbai over SMTP (port 587, STARTTLS with certificate checks), from the same AWS account as the server. The account stays in SES's sandbox, which can only send to addresses verified in SES: fine, since alerts only go to our own team. `deploy/set-email.sh`, run on the server, asks for the SES SMTP username and password, writes them only to `protect.env` and sends a test email (`app.cli test-email`). Until the 3 DKIM records for transfunnel.com are in DNS, Outlook marks alerts "Unverified". Microsoft Graph (above) replaces it once IT creates the app registration (Q5); the switch is a settings change.
 - **Secrets:** in a `.env` readable only by the service user. `.env.example` is committed; `.env` never is.
 
 ---

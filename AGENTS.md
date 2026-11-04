@@ -88,6 +88,7 @@ uv run uvicorn app.main:app --reload --port 8000           # or use the `platfor
 python -m app.cli add-site | new-code | list-sites
 python -m app.cli replay-advisory php2shell|drill-plugin    # match now; alerts go out on the next scheduler run
 python -m app.cli list-incidents | send-alerts | send-digest | ack-incident <id>
+python -m app.cli test-email                    # send a test email to the alert recipients
 python -m app.cli add-user --email you@example.com --name "You" --role admin   # prints a one-time setup link
 python -m app.cli reset-user --email you@example.com                          # lost phone or password: new setup link
 # dashboard: http://127.0.0.1:8000 (dev sign-in: pick a team member)
@@ -96,6 +97,7 @@ python -m app.cli reset-user --email you@example.com                          # 
 # production (AWS Lightsail Mumbai; see deploy/). Deploy = copy this checkout's platform/ and restart.
 deploy/deploy.sh ubuntu@13.200.85.221 13-200-85-221.sslip.io   # first time and every update
 ssh -i ~/.ssh/protect_aws ubuntu@13.200.85.221                 # then: journalctl -u protect -n 50
+ssh -t -i ~/.ssh/protect_aws ubuntu@13.200.85.221 'sudo sh protect-src/deploy/set-email.sh'   # alert email via Amazon SES (asks for the SMTP password itself)
 ssh -i ~/.ssh/protect_aws ubuntu@13.200.85.221 'cd /opt/protect/platform && sudo -u protect sh -c "set -a; . /etc/protect/protect.env; .venv/bin/python -m app.cli list-sites"'
 
 # plugin checks (no local PHP needed; PHP 7.4 lint proves old-site compatibility)

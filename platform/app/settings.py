@@ -112,6 +112,10 @@ class Settings(BaseSettings):
                 raise ValueError("PROTECT_SECRET_KEY must be set (32+ chars) in prod")
             if not self.base_url.startswith("https://"):
                 raise ValueError("PROTECT_BASE_URL must use https:// in prod")
+            if self.email_transport == "smtp" and not self.smtp_starttls:
+                raise ValueError(
+                    "PROTECT_SMTP_STARTTLS must be true in prod (the password is sent)"
+                )
         if self.env == "dev" and not is_local_host(urlsplit(self.base_url).hostname or ""):
             # Dev mode signs anyone in without a password. A real address means a server was
             # started in dev mode by mistake: refuse to start rather than open the dashboard.

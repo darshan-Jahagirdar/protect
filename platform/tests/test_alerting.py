@@ -1,8 +1,10 @@
+import ssl
 from datetime import timedelta
 
 import pytest
 from sqlalchemy.orm import Session
 
+from app import cli
 from app.alerts import mailer as mailer_mod
 from app.alerts.mailer import MemoryMailer, Message, SmtpMailer
 from app.db import utcnow
@@ -201,6 +203,85 @@ def test_smtp_mailer_builds_a_plain_email(monkeypatch: pytest.MonkeyPatch) -> No
     assert email["From"] == "p@demo.test"
     assert email["To"] == "team@demo.test"
     assert email.get_content().strip() == "Body"
+    assert email["Date"] and email["Message-ID"].endswith("@demo.test>")
+
+
+def test_smtp_mailer_checks_the_certificate_before_sending_the_password(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[str] = []
+
+    class FakeSMTP:
+        def __init__(self, host: str, port: int, timeout: int):
+            assert (host, port) == ("email-smtp.ap-south-1.amazonaws.com", 587)
+
+        def __enter__(self) -> "FakeSMTP":
+            return self
+
+        def __exit__(self, *a: object) -> None:
+            pass
+
+        def starttls(self, context: ssl.SSLContext | None = None) -> None:
+            assert context is not None and context.verify_mode == ssl.CERT_REQUIRED
+            assert context.check_hostname
+            calls.append("starttls")
+
+        def login(self, user: str, password: str) -> None:
+            assert (user, password) == ("AKIAEXAMPLE", "pw")
+            calls.append("login")
+
+        def send_message(self, email) -> None:  # type: ignore[no-untyped-def]
+            calls.append("send")
+
+    monkeypatch.setattr(mailer_mod.smtplib, "SMTP", FakeSMTP)
+    s = Settings(
+        env="test",
+        email_transport="smtp",
+        smtp_host="email-smtp.ap-south-1.amazonaws.com",
+        smtp_port=587,
+        smtp_starttls=True,
+        smtp_username="AKIAEXAMPLE",
+        smtp_password="pw",  # noqa: S106
+        alert_from="alerts@demo.test",
+    )
+    SmtpMailer(s).send(Message(("team@demo.test",), "Subject", "Body"))
+    assert calls == ["starttls", "login", "send"]
+
+
+def test_prod_refuses_smtp_without_starttls() -> None:
+    prod = {"env": "prod", "secret_key": "k" * 32, "base_url": "https://protect.demo.test"}
+    with pytest.raises(ValueError, match="STARTTLS"):
+        Settings(**prod, email_transport="smtp", smtp_starttls=False)
+    Settings(**prod, email_transport="smtp", smtp_starttls=True)
+
+
+def test_cli_test_email(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    memory = MemoryMailer()
+    monkeypatch.setattr(cli, "mailer_for", lambda settings: memory)
+    monkeypatch.setattr(cli, "get_settings", lambda: _settings())
+    assert cli.main(["test-email"]) == 0
+    [message] = memory.sent
+    assert message.to == ("team@demo.test",) and "test" in message.subject.lower()
+    assert "1 recipient" in capsys.readouterr().out
+
+    monkeypatch.setattr(cli, "get_settings", lambda: Settings(env="test", base_url=BASE))
+    assert cli.main(["test-email"]) == 1
+    assert "no alert recipients" in capsys.readouterr().err
+
+
+def test_cli_test_email_says_why_it_failed(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    class Broken:
+        def send(self, message: Message) -> None:
+            raise OSError("connection refused")
+
+    monkeypatch.setattr(cli, "mailer_for", lambda settings: Broken())
+    monkeypatch.setattr(cli, "get_settings", lambda: _settings())
+    assert cli.main(["test-email"]) == 1
+    assert "connection refused" in capsys.readouterr().err
 
 
 # --- Incident page and the "I'm on it" button -------------------------------------------

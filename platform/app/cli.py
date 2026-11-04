@@ -8,6 +8,7 @@
     uv run python -m app.cli list-incidents
     uv run python -m app.cli send-alerts                     # the scheduler does this every 60s
     uv run python -m app.cli send-digest
+    uv run python -m app.cli test-email                      # check alert email reaches the team
     uv run python -m app.cli ack-incident <incident id>
     uv run python -m app.cli add-user --email you@example.com --name "You" --role admin
     uv run python -m app.cli reset-user --email you@example.com   # lost phone or password
@@ -20,7 +21,7 @@ import sys
 
 from sqlalchemy import select
 
-from app.alerts.mailer import mailer_for
+from app.alerts.mailer import Message, mailer_for
 from app.dashboard.credentials import SETUP_LINK_HOURS, setup_link, start_setup
 from app.db import SessionLocal
 from app.enums import HostType, UserRole
@@ -34,7 +35,7 @@ from app.services.alerting import (
 )
 from app.services.enrollment import create_site, issue_code
 from app.services.incidents import apply_advisory
-from app.settings import get_settings
+from app.settings import Settings, get_settings
 
 
 def _print_code(site: Site, code: str) -> None:
@@ -63,6 +64,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("list-incidents", help="list incidents and their cases")
     sub.add_parser("send-alerts", help="send due alerts and escalations now (normally every 60s)")
     sub.add_parser("send-digest", help="send the P3/P4 daily digest now")
+    sub.add_parser("test-email", help="send a test email to the alert recipients")
     ack = sub.add_parser("ack-incident", help="acknowledge an incident (stops escalation)")
     ack.add_argument("incident_id")
 
@@ -118,6 +120,8 @@ def main(argv: list[str] | None = None) -> int:
         elif args.cmd == "send-digest":
             listed = send_digest(session, mailer_for(settings), settings)
             print(f"digest listed {listed} incident(s)" if listed else "nothing to digest")
+        elif args.cmd == "test-email":
+            return _send_test_email(settings)
         elif args.cmd == "ack-incident":
             incident = session.get(Incident, args.incident_id)
             if incident is None:
@@ -146,6 +150,27 @@ def main(argv: list[str] | None = None) -> int:
             session.commit()
             print(f"{found.email}: password and authenticator cleared, signed out everywhere")
             _print_setup_link(settings.base_url, token)
+    return 0
+
+
+TEST_EMAIL_BODY = """This is a test from Protect. Nothing is wrong.
+
+If you can read this, security alerts will reach you. If it landed in junk,
+mark it "Not junk" so real alerts don't end up there too.
+"""
+
+
+def _send_test_email(settings: Settings) -> int:
+    to = settings.alert_recipient_list
+    if not to:
+        print("no alert recipients set (PROTECT_ALERT_RECIPIENTS)", file=sys.stderr)
+        return 1
+    try:
+        mailer_for(settings).send(Message(tuple(to), "[Protect] Test email", TEST_EMAIL_BODY))
+    except Exception as exc:  # show why, so the person setting it up can fix it
+        print(f"sending failed: {type(exc).__name__}: {exc}", file=sys.stderr)
+        return 1
+    print(f"test email sent to {len(to)} recipient(s) via {settings.email_transport}")
     return 0
 
 

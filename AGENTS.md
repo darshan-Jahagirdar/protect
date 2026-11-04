@@ -104,6 +104,7 @@ ssh -i ~/.ssh/protect_aws ubuntu@13.200.85.221 'cd /opt/protect/platform && sudo
 for img in php:7.4-cli php:8.3.30-apache; do docker run --rm -v "$PWD/plugin/protect-reporter:/p:ro" $img sh -c 'for f in $(find /p -name "*.php"); do php -l "$f" | grep -v "^No syntax errors"; done'; done
 cd platform && uv run pytest tests/test_plugin_rules.py          # static rule checks (banned calls, no inbound endpoints, ...)
 docker run --rm -v "$PWD/plugin:/p:ro" php:7.4-cli php /p/tests/logic-check.php   # plugin logic on real PHP 7.4 (path encoding, size cap, lookup failures)
+plugin/build-zip.sh                       # installable file: dist/protect-reporter-<version>.zip (gitignored), prints its SHA-256
 docker compose -f docker/compose.yaml run --rm --no-deps -T --entrypoint wp wp-setup --path=/var/www/html eval 'echo wp_json_encode( Protect_Reporter_Inventory::build() );'   # see a payload (CLI PHP, for inspection only)
 ```
 

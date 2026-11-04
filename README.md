@@ -1,9 +1,38 @@
 # Protect
 
-TransFunnel's internal tool for spotting and handling security flaws on the WordPress sites we manage. It is still in development.
+TransFunnel's internal tool for spotting and handling security flaws on the WordPress sites we manage. When a serious hole is announced in PHP, WordPress, a plugin or a theme, Protect works out which of our sites are affected, alerts the team and guides the fix through to the client message.
 
-- [DESIGN.md](DESIGN.md): what we're building and why
-- [AGENTS.md](AGENTS.md): rules for anyone (or any AI agent) changing the code
+It has two parts:
+
+- **[`plugin/protect-reporter/`](plugin/protect-reporter/)**: a small WordPress plugin (PHP 7.4+, WordPress 5.9+, no dependencies). Once an hour it sends a signed list of versions and file-check results. It only sends: it can't receive commands or change the site.
+- **[`platform/`](platform/)**: the Python service that receives those reports, matches them against security advisories, emails the team (counts only, never site names) and runs the dashboard.
+
+**Status:** the platform is live at https://13-200-85-221.sslip.io (AWS Lightsail, Mumbai; dashboard sign-in with password + authenticator app; alert email through Amazon SES). The first site to connect is transfunnel.com itself. Live advisory feeds (php.net, GitHub advisories, CISA KEV, Wordfence, NVD) are the next build step; until then advisories are loaded from reviewed files, such as PHP2Shell.
+
+## For reviewers: the plugin
+
+The plugin is about 11 PHP files (~48 KB). What it sends is fixed in code and listed in [DESIGN.md §5.1](DESIGN.md): software versions, PHP settings that matter for security, and file-check results with site-relative paths. Never page content, users, passwords, visitor data, logs or file contents.
+
+Rules it follows, each enforced by an automated check in [`platform/tests/test_plugin_rules.py`](platform/tests/test_plugin_rules.py) (48 checks):
+
+- No inbound endpoints: no REST routes, no `admin-ajax` handlers, no query vars. The one button, "Report now", is admin-only and nonce-checked.
+- Reads only the HTTP status code of its own requests, never a reply body (except wordpress.org checksums).
+- Never runs commands: no `exec`, `shell_exec`, `system`, `passthru`, `proc_open`, `popen`, backticks, `eval` or similar.
+- Talks only to the configured Protect URL, `api.wordpress.org` and `downloads.wordpress.org`.
+- `uninstall.php` removes every option it created.
+
+Check it yourself (needs Docker and [uv](https://docs.astral.sh/uv/)):
+
+```bash
+cd platform && uv run pytest tests/test_plugin_rules.py                            # the 48 rule checks
+docker run --rm -v "$PWD/../plugin:/p:ro" php:7.4-cli php /p/tests/logic-check.php  # plugin logic on real PHP 7.4
+cd .. && plugin/build-zip.sh                                                       # the installable zip + its SHA-256
+```
+
+## Docs
+
+- [DESIGN.md](DESIGN.md): what we're building and why, including the data list and the security design
+- [AGENTS.md](AGENTS.md): rules for anyone (or any AI agent) changing the code, and every command
 - [PROGRESS.md](PROGRESS.md): status, decisions and work log
 - [HANDOFF.md](HANDOFF.md): where things stand and what's next (start here in a new session)
 
@@ -28,7 +57,7 @@ docker compose -f docker/compose.yaml up -d --build
 docker compose -f docker/compose.yaml exec platform python -m app.cli add-user --email you@example.com --name "Your Name" --role admin
 ```
 
-Then open http://127.0.0.1:8000 and pick your name. The demo sign-in exists only locally; production will use Cloudflare Access.
+Then open http://127.0.0.1:8000 and pick your name. This pick-a-name sign-in exists only on the local demo; the live server asks for a password and an authenticator code.
 
 **Connect the demo site to Protect:**
 

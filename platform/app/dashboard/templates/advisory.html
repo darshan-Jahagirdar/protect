@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}{% if advisory.drill %}[DRILL] {% endif %}{{ advisory.title }} · Protect{% endblock %}
+{% block content %}
+<p><a href="/advisories">← Advisories</a></p>
+<h1>{% if advisory.drill %}<span class="badge badge-drill">DRILL</span> {% endif %}{{ advisory.title }}</h1>
+<p class="muted">
+  {{ advisory.review_status.value | replace("_", " ") | capitalize }}
+  · from {{ advisory.source }}
+  {% if advisory.published_at %}· published {{ advisory.published_at.strftime("%Y-%m-%d") }}{% endif %}
+  · ids: {{ advisory.aliases | join(", ") }}
+</p>
+
+<div class="tiles">
+  <section class="tile"><div class="tile-value">{{ advisory.cvss_score if advisory.cvss_score is not none else "?" }}</div><div class="tile-label">CVSS score</div></section>
+  <section class="tile {% if advisory.kev %}tile-alert{% endif %}"><div class="tile-value small-value">{% if advisory.kev %}Yes, CISA{% elif advisory.exploited %}Reported{% else %}Not known{% endif %}</div><div class="tile-label">Exploited</div></section>
+  {% if waiting %}
+  <section class="tile {% if possible %}tile-warn{% endif %}"><div class="tile-value">{{ possible }}</div><div class="tile-label">Sites it may affect</div></section>
+  {% endif %}
+</div>
+
+{% if incidents %}
+<h2>Incidents</h2>
+<ul>
+  {% for i in incidents %}<li><a href="/incidents/{{ i.id }}">{{ i.title }}</a> <span class="muted small">· {{ i.status.value }}</span></li>{% endfor %}
+</ul>
+{% endif %}
+
+{% if viewer.user.role.value != "viewer" and not advisory.kev %}
+<form method="post" action="/advisories/{{ advisory.id }}/exploited" class="inline-form">
+  <input type="hidden" name="csrf_token" value="{{ viewer.csrf }}">
+  <input type="hidden" name="exploited" value="{{ '0' if advisory.exploited else '1' }}">
+  <input type="text" name="note" maxlength="1000" placeholder="{{ 'Why it no longer applies' if advisory.exploited else 'Where the reports come from' }}">
+  <button class="button-secondary" type="submit">{{ "Remove the exploited mark" if advisory.exploited else "Mark as exploited (+30)" }}</button>
+</form>
+<p class="small muted">Use this when credible sources (the vendor, a security firm, CERT-In) report attacks. Feeds never change it; CISA's list counts on its own.</p>
+{% endif %}
+
+{% if advisory.source_url and (advisory.source_url.startswith("https://") or advisory.source_url.startswith("http://")) %}
+<p><a href="{{ advisory.source_url }}" rel="noopener noreferrer" target="_blank">Read the original advisory</a> <span class="muted small">({{ advisory.source_url }})</span></p>
+{% endif %}
+
+{% if waiting %}
+<h2 id="review">Review the affected versions</h2>
+<div class="flash">Why this needs a person: {{ advisory.review_reason or "it came from a free-text source" }}.</div>
+{% if viewer.user.role.value != "viewer" %}
+<form method="post" action="/advisories/{{ advisory.id }}/review" class="card wide-form form-grid">
+  <input type="hidden" name="csrf_token" value="{{ viewer.csrf }}">
+  <label>Affected versions (Protect's best reading; check it against the original advisory)
+    <textarea name="ranges" rows="8" spellcheck="false" maxlength="20000">{{ ranges_text }}</textarea>
+  </label>
+  <p class="small muted">{{ range_help }}</p>
+  <label>Note (required to reject; for example "covered by GHSA-…")
+    <input type="text" name="note" maxlength="1000">
+  </label>
+  <div class="stack-row">
+    <button class="button-primary" type="submit" name="action" value="confirm">Confirm and match sites</button>
+    <button class="button-secondary" type="submit" name="action" value="reject">Reject</button>
+  </div>
+</form>
+{% else %}
+<pre class="card">{{ ranges_text or "No versions yet." }}</pre>
+{% endif %}
+{% else %}
+<h2>Affected versions</h2>
+<pre class="card">{{ ranges_text or "No versions listed." }}</pre>
+{% if reviewer or advisory.review_note %}
+<p class="small muted">Reviewed{% if reviewer %} by {{ reviewer.display_name }}{% endif %}{% if advisory.reviewed_at %} on {{ advisory.reviewed_at.strftime("%Y-%m-%d %H:%M UTC") }}{% endif %}{% if advisory.review_note %}: {{ advisory.review_note }}{% endif %}</p>
+{% endif %}
+{% endif %}
+
+{% if advisory.summary_text %}
+<h2>What the source says</h2>
+<div class="card ai-text">{{ advisory.summary_text }}</div>
+{% endif %}
+{% if advisory.attribution %}
+<p class="small muted">{{ advisory.attribution }}</p>
+{% endif %}
+{% endblock %}

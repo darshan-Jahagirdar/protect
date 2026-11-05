@@ -59,13 +59,36 @@ from app.enums import (
     SiteStatus,
     UserRole,
 )
-from app.models import Advisory, AuditLog, Case, Event, Incident, Report, Site, User
+from app.feeds.status import feed_health
+from app.models import (
+    Advisory,
+    AuditLog,
+    Case,
+    Event,
+    FeedRun,
+    FeedState,
+    Incident,
+    IncidentAdvisory,
+    Report,
+    Site,
+    User,
+)
 from app.services import cases as case_actions
-from app.services.advisories import fixture_names, load_fixture, upsert_advisory
+from app.services.advisories import (
+    RANGE_HELP,
+    ReviewError,
+    confirm_advisory,
+    fixture_names,
+    load_fixture,
+    ranges_to_text,
+    reject_advisory,
+    set_exploited,
+    upsert_advisory,
+)
 from app.services.alerting import acknowledge, is_acknowledged, summarize
 from app.services.enrollment import create_site, issue_code
 from app.services.findings import latest_findings
-from app.services.incidents import apply_advisory, fix_not_visible, rematch_site
+from app.services.incidents import apply_advisory, fix_not_visible, possible_sites, rematch_site
 from app.services.observations import (
     disagreement,
     latest_observation,
@@ -133,6 +156,9 @@ MESSAGES = {  # fixed texts only: nothing user-supplied is reflected from the UR
     "closed": "Incident closed.",
     "observed": "Public homepage viewed.",
     "ai_done": "AI summary ready. Check it before relying on it.",
+    "reviewed": "Advisory confirmed and matched against every active site.",
+    "reviewed_none": "Advisory confirmed: no active site is affected.",
+    "rejected": "Advisory rejected. It won't open anything.",
 }
 
 
@@ -452,6 +478,12 @@ def overview(request: Request, viewer: ViewerDep, session: SessionDep) -> HTMLRe
         if i.priority in (Priority.P1, Priority.P2) and not acked and s.affected
     ]
     reports = [s.last_report_at for s in active if s.last_report_at]
+    queue = [
+        (a, possible_sites(session, a))
+        for a in session.scalars(
+            select(Advisory).where(Advisory.review_status == ReviewStatus.NEEDS_REVIEW)
+        )
+    ]
     return page(
         request,
         "overview.html",
@@ -475,12 +507,11 @@ def overview(request: Request, viewer: ViewerDep, session: SessionDep) -> HTMLRe
             ),
             "warning_sites": warning_sites,
             "disagree_sites": disagree_sites,
-            "needs_review": session.scalar(
-                select(func.count())
-                .select_from(Advisory)
-                .where(Advisory.review_status == ReviewStatus.NEEDS_REVIEW)
-            )
-            or 0,
+            "needs_review": len(queue),
+            "review_matches": [(a, n) for a, n in queue if n],
+            "feed_problems": [
+                h for h in feed_health(session, request.app.state.settings) if h.needs_attention
+            ],
         },
     )
 
@@ -864,7 +895,127 @@ async def case_draft(request: Request, case_id: int, viewer: ResponderDep, sessi
 @router.get("/advisories", response_class=HTMLResponse)
 def advisories_page(request: Request, viewer: ViewerDep, session: SessionDep) -> HTMLResponse:
     advisories = session.scalars(select(Advisory).order_by(Advisory.created_at.desc())).all()
-    return page(request, "advisories.html", {"advisories": advisories, "fixtures": fixture_names()})
+    queue = [
+        (a, possible_sites(session, a))
+        for a in advisories
+        if a.review_status is ReviewStatus.NEEDS_REVIEW
+    ]
+    queue.sort(
+        key=lambda item: (-item[1], -(item[0].published_at or item[0].created_at).timestamp())
+    )
+    return page(
+        request,
+        "advisories.html",
+        {
+            "queue": queue,
+            "advisories": [
+                a for a in advisories if a.review_status is not ReviewStatus.NEEDS_REVIEW
+            ],
+            "fixtures": fixture_names(),
+        },
+    )
+
+
+def advisory_view(
+    request: Request,
+    session: Session,
+    advisory: Advisory,
+    error: str | None = None,
+    ranges_text: str | None = None,
+) -> HTMLResponse:
+    incidents = session.scalars(
+        select(Incident)
+        .join(IncidentAdvisory, IncidentAdvisory.incident_id == Incident.id)
+        .where(IncidentAdvisory.advisory_id == advisory.id)
+        .order_by(Incident.created_at.desc())
+    ).all()
+    waiting = advisory.review_status is ReviewStatus.NEEDS_REVIEW
+    return page(
+        request,
+        "advisory.html",
+        {
+            "advisory": advisory,
+            "incidents": incidents,
+            "waiting": waiting,
+            "possible": possible_sites(session, advisory) if waiting else None,
+            "ranges_text": ranges_to_text(advisory) if ranges_text is None else ranges_text,
+            "range_help": RANGE_HELP,
+            "reviewer": session.get(User, advisory.reviewed_by) if advisory.reviewed_by else None,
+            "error": error,
+        },
+        status=400 if error else 200,
+    )
+
+
+@router.get("/advisories/{advisory_id}", response_class=HTMLResponse)
+def advisory_page(request: Request, advisory_id: int, viewer: ViewerDep, session: SessionDep):
+    return advisory_view(request, session, _get(session, Advisory, advisory_id))
+
+
+@router.post("/advisories/{advisory_id}/review", response_class=HTMLResponse, dependencies=CSRF)
+async def advisory_review(
+    request: Request, advisory_id: int, viewer: ResponderDep, session: SessionDep
+):
+    advisory = _get(session, Advisory, advisory_id)
+    form = await request.form()
+    action, note = str(form.get("action", "")), str(form.get("note", ""))
+    text = str(form.get("ranges", ""))[:20000]
+    try:
+        if action == "confirm":
+            confirm_advisory(session, advisory, viewer.user, text, note)
+        elif action == "reject":
+            reject_advisory(session, advisory, viewer.user, note)
+        else:
+            raise HTTPException(status_code=400)
+    except ReviewError as e:
+        session.rollback()
+        advisory = _get(session, Advisory, advisory_id)
+        return advisory_view(request, session, advisory, error=str(e), ranges_text=text)
+    _audit(session, viewer.user, f"advisory_{action}ed", str(advisory.id), note=note[:200])
+    incident = apply_advisory(session, advisory) if action == "confirm" else None
+    session.commit()
+    if incident is not None:
+        return RedirectResponse(f"/incidents/{incident.id}?msg=reviewed", status_code=303)
+    msg = "reviewed_none" if action == "confirm" else "rejected"
+    return RedirectResponse(f"/advisories/{advisory.id}?msg={msg}", status_code=303)
+
+
+@router.post("/advisories/{advisory_id}/exploited", response_class=HTMLResponse, dependencies=CSRF)
+async def advisory_exploited(
+    request: Request, advisory_id: int, viewer: ResponderDep, session: SessionDep
+):
+    advisory = _get(session, Advisory, advisory_id)
+    form = await request.form()
+    on, note = form.get("exploited") == "1", str(form.get("note", ""))
+    try:
+        set_exploited(session, advisory, viewer.user, on, note)
+    except ReviewError as e:
+        session.rollback()
+        return advisory_view(request, session, _get(session, Advisory, advisory_id), error=str(e))
+    _audit(session, viewer.user, "advisory_exploited", str(advisory.id), on=on, note=note[:200])
+    apply_advisory(session, advisory)  # rescore every open case (+30 or -30)
+    session.commit()
+    return RedirectResponse(f"/advisories/{advisory.id}?msg=saved", status_code=303)
+
+
+@router.get("/feeds", response_class=HTMLResponse)
+def feeds_page(request: Request, viewer: ViewerDep, session: SessionDep) -> HTMLResponse:
+    runs = session.scalars(select(FeedRun).order_by(FeedRun.id.desc()).limit(30)).all()
+    releases = session.get(FeedState, "php-releases")
+    kev = session.get(FeedState, "kev")
+    health = feed_health(session, request.app.state.settings)
+    return page(
+        request,
+        "feeds.html",
+        {
+            "health": health,
+            "runs": runs,
+            "labels": {h.spec.name: h.spec.label for h in health},
+            "php": releases.data if releases else {},
+            "kev_count": len(kev.data.get("cves", [])) if kev else None,
+            "kev_updated": kev.updated_at if kev else None,
+        },
+    )
 
 
 @router.post("/advisories/replay", dependencies=CSRF)

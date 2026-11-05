@@ -1,0 +1,852 @@
+[
+ {
+  "ghsa_id": "GHSA-w8hw-w9fx-j79w",
+  "cve_id": "CVE-2026-109618",
+  "url": "https://api.github.com/repos/php/php-src/security-advisories/GHSA-w8hw-w9fx-j79w",
+  "html_url": "https://github.com/php/php-src/security/advisories/GHSA-w8hw-w9fx-j79w",
+  "summary": "RCE via OOM corruption",
+  "description": "## Summary\r\n\r\nPHP uses `longjmp()` for out-of-memory (OOM) errors to exit the current context and abort handling of the request. In some contexts, request memory is temporarily reachable before it is fully initialized. If any allocation fails at that point, PHP does not properly account for the early exit and leaves the request memory in an invalid state. The failed allocation does not need to be ",
+  "severity": "critical",
+  "identifiers": [
+   {
+    "value": "GHSA-w8hw-w9fx-j79w",
+    "type": "GHSA"
+   },
+   {
+    "value": "CVE-2026-109618",
+    "type": "CVE"
+   }
+  ],
+  "published_at": "2026-10-21T13:34:25Z",
+  "updated_at": "2026-11-03T22:10:29Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "php",
+     "name": "php-src"
+    },
+    "vulnerable_version_range": "< 8.2.35",
+    "patched_versions": "8.2.35",
+    "vulnerable_functions": []
+   },
+   {
+    "package": {
+     "ecosystem": "php",
+     "name": "php-src"
+    },
+    "vulnerable_version_range": "< 8.3.36",
+    "patched_versions": "8.3.36",
+    "vulnerable_functions": []
+   },
+   {
+    "package": {
+     "ecosystem": "php",
+     "name": "php-src"
+    },
+    "vulnerable_version_range": "< 8.4.27",
+    "patched_versions": "8.4.27",
+    "vulnerable_functions": []
+   },
+   {
+    "package": {
+     "ecosystem": "php",
+     "name": "php-src"
+    },
+    "vulnerable_version_range": "< 8.5.12",
+    "patched_versions": "8.5.12",
+    "vulnerable_functions": []
+   }
+  ],
+  "cvss_severities": {
+   "cvss_v3": {
+    "vector_string": null,
+    "score": null
+   },
+   "cvss_v4": {
+    "vector_string": "CVSS:4.0/AV:N/AC:H/AT:P/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N",
+    "score": 9.2
+   }
+  },
+  "cvss": {
+   "vector_string": null,
+   "score": null
+  },
+  "state": "published"
+ },
+ {
+  "ghsa_id": "GHSA-6wmf-4rv5-p3rp",
+  "cve_id": "CVE-2026-109619",
+  "url": "https://api.github.com/repos/php/php-src/security-advisories/GHSA-6wmf-4rv5-p3rp",
+  "html_url": "https://github.com/php/php-src/security/advisories/GHSA-6wmf-4rv5-p3rp",
+  "summary": "RCE via stale global state",
+  "description": "## Summary\r\n\r\nPHP contains various global state, such as error, session, object and extension state that is retained by a worker but points to memory owned by one request. That state must be reset before the request memory is released. Some input, configuration, session and error handling operations run before normal initialization of the next request. They inadvertently access stale state not res",
+  "severity": "critical",
+  "identifiers": [
+   {
+    "value": "GHSA-6wmf-4rv5-p3rp",
+    "type": "GHSA"
+   },
+   {
+    "value": "CVE-2026-109619",
+    "type": "CVE"
+   }
+  ],
+  "published_at": "2026-10-21T13:34:13Z",
+  "updated_at": "2026-10-21T13:34:13Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "php",
+     "name": "php-src"
+    },
+    "vulnerable_version_range": "< 8.2.35",
+    "patched_versions": "8.2.35",
+    "vulnerable_functions": []
+   },
+   {
+    "package": {
+     "ecosystem": "php",
+     "name": "php-src"
+    },
+    "vulnerable_version_range": "< 8.3.36",
+    "patched_versions": "8.3.36",
+    "vulnerable_functions": []
+   },
+   {
+    "package": {
+     "ecosystem": "php",
+     "name": "php-src"
+    },
+    "vulnerable_version_range": "< 8.4.27",
+    "patched_versions": "8.4.27",
+    "vulnerable_functions": []
+   },
+   {
+    "package": {
+     "ecosystem": "php",
+     "name": "php-src"
+    },
+    "vulnerable_version_range": "< 8.5.12",
+    "patched_versions": "8.5.12",
+    "vulnerable_functions": []
+   }
+  ],
+  "cvss_severities": {
+   "cvss_v3": {
+    "vector_string": null,
+    "score": null
+   },
+   "cvss_v4": {
+    "vector_string": "CVSS:4.0/AV:N/AC:H/AT:P/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N",
+    "score": 9.2
+   }
+  },
+  "cvss": {
+   "vector_string": null,
+   "score": null
+  },
+  "state": "published"
+ },
+ {
+  "ghsa_id": "GHSA-7875-c8px-7q5f",
+  "cve_id": "CVE-2026-93682",
+  "url": "https://api.github.com/repos/php/php-src/security-advisories/GHSA-7875-c8px-7q5f",
+  "html_url": "https://github.com/php/php-src/security/advisories/GHSA-7875-c8px-7q5f",
+  "summary": "Out-of-bounds read in the HTTP stream wrapper when following a redirect with an empty Location header",
+  "description": "### Summary\r\n\r\nWhen the HTTP stream wrapper follows a redirect and the response carries a `Location` header with an empty value, the redirect code reads one byte past the end of the heap buffer holding the location. The value of that out-of-bounds byte decides which redirect target is built, so a malicious server controls whether the client is sent to the host root or to the current directory.\r\n\r\n",
+  "severity": "medium",
+  "identifiers": [
+   {
+    "value": "GHSA-7875-c8px-7q5f",
+    "type": "GHSA"
+   },
+   {
+    "value": "CVE-2026-93682",
+    "type": "CVE"
+   }
+  ],
+  "published_at": "2026-09-24T10:07:25Z",
+  "updated_at": "2026-09-25T19:54:11Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "php",
+     "name": "ext-standard"
+    },
+    "vulnerable_version_range": "<8.2.34",
+    "patched_versions": "8.2.34",
+    "vulnerable_functions": []
+   },
+   {
+    "package": {
+     "ecosystem": "php",
+     "name": "ext-standard"
+    },
+    "vulnerable_version_range": "<8.3.35",
+    "patched_versions": "8.3.35",
+    "vulnerable_functions": []
+   },
+   {
+    "package": {
+     "ecosystem": "php",
+     "name": "ext-standard"
+    },
+    "vulnerable_version_range": "<8.4.26",
+    "patched_versions": "8.4.26",
+    "vulnerable_functions": []
+   },
+   {
+    "package": {
+     "ecosystem": "php",
+     "name": "ext-standard"
+    },
+    "vulnerable_version_range": "<8.5.11",
+    "patched_versions": "8.5.11",
+    "vulnerable_functions": []
+   }
+  ],
+  "cvss_severities": {
+   "cvss_v3": {
+    "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N",
+    "score": 5.3
+   },
+   "cvss_v4": {
+    "vector_string": null,
+    "score": null
+   }
+  },
+  "cvss": {
+   "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N",
+   "score": 5.3
+  },
+  "state": "published"
+ },
+ {
+  "ghsa_id": "GHSA-88hq-2827-7pg6",
+  "cve_id": "CVE-2026-92842",
+  "url": "https://api.github.com/repos/php/php-src/security-advisories/GHSA-88hq-2827-7pg6",
+  "html_url": "https://github.com/php/php-src/security/advisories/GHSA-88hq-2827-7pg6",
+  "summary": "OOB read / info leak in convert.* stream filters when line-break-chars contains NUL",
+  "description": "### Summary\r\n\r\nThe `convert.base64-encode`, `convert.quoted-printable-encode` and `convert.quoted-printable-decode` stream filters accept a `line-break-chars` option whose length is tracked separately from the string itself. The filter constructors duplicate the value with `pestrdup()`, which stops at the first NUL byte, while keeping the original length. When the filter later emits a line break i",
+  "severity": "medium",
+  "identifiers": [
+   {
+    "value": "GHSA-88hq-2827-7pg6",
+    "type": "GHSA"
+   },
+   {
+    "value": "CVE-2026-92842",
+    "type": "CVE"
+   }
+  ],
+  "published_at": "2026-09-24T10:07:21Z",
+  "updated_at": "2026-09-25T21:09:54Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "php",
+     "name": "ext-standard"
+    },
+    "vulnerable_version_range": "<8.2.34",
+    "patched_versions": "8.2.34",
+    "vulnerable_functions": []
+   },
+   {
+    "package": {
+     "ecosystem": "php",
+     "name": "ext-standard"
+    },
+    "vulnerable_version_range": "<8.3.35",
+    "patched_versions": "8.3.35",
+    "vulnerable_functions": []
+   },
+   {
+    "package": {
+     "ecosystem": "php",
+     "name": "ext-standard"
+    },
+    "vulnerable_version_range": "<8.4.26",
+    "patched_versions": "8.4.26",
+    "vulnerable_functions": []
+   },
+   {
+    "package": {
+     "ecosystem": "php",
+     "name": "ext-standard"
+    },
+    "vulnerable_version_range": "<8.5.11",
+    "patched_versions": "8.5.11",
+    "vulnerable_functions": []
+   }
+  ],
+  "cvss_severities": {
+   "cvss_v3": {
+    "vector_string": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N",
+    "score": 5.9
+   },
+   "cvss_v4": {
+    "vector_string": null,
+    "score": null
+   }
+  },
+  "cvss": {
+   "vector_string": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N",
+   "score": 5.9
+  },
+  "state": "published"
+ },
+ {
+  "ghsa_id": "GHSA-ch8v-r6jh-4vvr",
+  "cve_id": null,
+  "url": "https://api.github.com/repos/php/php-src/security-advisories/GHSA-ch8v-r6jh-4vvr",
+  "html_url": "https://github.com/php/php-src/security/advisories/GHSA-ch8v-r6jh-4vvr",
+  "summary": "ext/filter: encode 0xFF in FILTER_SANITIZE_ENCODED",
+  "description": "### Summary\n\n`php_filter_encode_url()` builds a 256-entry lookup table that decides which bytes `FILTER_SANITIZE_ENCODED` percent-encodes, but initialises only the first 255 entries. Entry 255 is read uninitialised, so whether the byte `0xFF` is encoded or passed through depends on whatever happened to be on the stack.\n\n### Details\n\nThe table is filled with `memset(tmp, 1, sizeof(tmp) - 1)`, which",
+  "severity": "low",
+  "identifiers": [
+   {
+    "value": "GHSA-ch8v-r6jh-4vvr",
+    "type": "GHSA"
+   }
+  ],
+  "published_at": "2026-09-24T10:07:15Z",
+  "updated_at": "2026-09-24T10:07:15Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "other",
+     "name": "ext-filter"
+    },
+    "vulnerable_version_range": "<8.2.34",
+    "patched_versions": "8.2.34",
+    "vulnerable_functions": []
+   },
+   {
+    "package": {
+     "ecosystem": "other",
+     "name": "ext-filter"
+    },
+    "vulnerable_version_range": "<8.3.35",
+    "patched_versions": "8.3.35",
+    "vulnerable_functions": []
+   },
+   {
+    "package": {
+     "ecosystem": "other",
+     "name": "ext-filter"
+    },
+    "vulnerable_version_range": "<8.4.25",
+    "patched_versions": "8.4.25",
+    "vulnerable_functions": []
+   },
+   {
+    "package": {
+     "ecosystem": "other",
+     "name": "ext-filter"
+    },
+    "vulnerable_version_range": "<8.5.10",
+    "patched_versions": "8.5.10",
+    "vulnerable_functions": []
+   }
+  ],
+  "cvss_severities": {
+   "cvss_v3": {
+    "vector_string": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:N/A:N",
+    "score": 3.7
+   },
+   "cvss_v4": {
+    "vector_string": null,
+    "score": null
+   }
+  },
+  "cvss": {
+   "vector_string": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:N/A:N",
+   "score": 3.7
+  },
+  "state": "published"
+ },
+ {
+  "ghsa_id": "GHSA-x692-q9x7-8c3f",
+  "cve_id": "CVE-2026-17544",
+  "url": "https://api.github.com/repos/php/php-src/security-advisories/GHSA-x692-q9x7-8c3f",
+  "html_url": "https://github.com/php/php-src/security/advisories/GHSA-x692-q9x7-8c3f",
+  "summary": "Out-of-bounds write in bccomp() via crafted operand and scale",
+  "description": "A call to `bccomp()` with attacker-supplied inputs can lead to an out-of-bounds write to either stack or heap memory. The bug occurs in `bc_str2num()` when the scale truncates a number whose trailing zeros are subsequently trimmed.\r\n\r\nhttps://github.com/php/php-src/blob/a480965c90b4f4948f211c8b139788371e031838/ext/bcmath/libbcmath/src/str2num.c#L169-L185\r\n\r\n`str_scale` later determines the number ",
+  "severity": "high",
+  "identifiers": [
+   {
+    "value": "GHSA-x692-q9x7-8c3f",
+    "type": "GHSA"
+   },
+   {
+    "value": "CVE-2026-17544",
+    "type": "CVE"
+   }
+  ],
+  "published_at": "2026-07-30T11:03:07Z",
+  "updated_at": "2026-07-30T11:03:07Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "php",
+     "name": "ext-bcmath"
+    },
+    "vulnerable_version_range": "<8.4.24",
+    "patched_versions": "8.4.24",
+    "vulnerable_functions": []
+   },
+   {
+    "package": {
+     "ecosystem": "php",
+     "name": "ext-bcmath"
+    },
+    "vulnerable_version_range": "<8.5.9",
+    "patched_versions": "8.5.9",
+    "vulnerable_functions": []
+   }
+  ],
+  "cvss_severities": {
+   "cvss_v3": {
+    "vector_string": null,
+    "score": null
+   },
+   "cvss_v4": {
+    "vector_string": null,
+    "score": null
+   }
+  },
+  "cvss": {
+   "vector_string": null,
+   "score": null
+  },
+  "state": "published"
+ },
+ {
+  "ghsa_id": "GHSA-rwp7-7vc6-8477",
+  "cve_id": "CVE-2024-11235",
+  "url": "https://api.github.com/repos/php/php-src/security-advisories/GHSA-rwp7-7vc6-8477",
+  "html_url": "https://github.com/php/php-src/security/advisories/GHSA-rwp7-7vc6-8477",
+  "summary": "Reference counting in php_request_shutdown causes Use-After-Free",
+  "description": "### Summary\r\n\r\nException handler frees variables via `cleanup_live_vars` for termination. However, the subsequent `php_request_shutdown` performs reference counting on these variables using `zend_gc_refcount`(read) and `zend_gc_delref`(write), resulting in use-after-free. Since `zend_mm_free_small` stores metadata in freed memory chunks, this use-after-free vulnerability may allows manipulation of",
+  "severity": "medium",
+  "identifiers": [
+   {
+    "value": "GHSA-rwp7-7vc6-8477",
+    "type": "GHSA"
+   },
+   {
+    "value": "CVE-2024-11235",
+    "type": "CVE"
+   }
+  ],
+  "published_at": "2025-03-13T17:44:39Z",
+  "updated_at": "2025-03-13T17:44:40Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "",
+     "name": ""
+    },
+    "vulnerable_version_range": "< 8.3.18",
+    "patched_versions": "8.3.19",
+    "vulnerable_functions": []
+   },
+   {
+    "package": {
+     "ecosystem": "",
+     "name": ""
+    },
+    "vulnerable_version_range": "< 8.4.5",
+    "patched_versions": "8.4.5",
+    "vulnerable_functions": []
+   }
+  ],
+  "cvss_severities": {
+   "cvss_v3": {
+    "vector_string": null,
+    "score": null
+   },
+   "cvss_v4": {
+    "vector_string": null,
+    "score": null
+   }
+  },
+  "cvss": {
+   "vector_string": null,
+   "score": null
+  },
+  "state": "published"
+ },
+ {
+  "ghsa_id": "GHSA-wg4p-4hqh-c3g9",
+  "cve_id": null,
+  "url": "https://api.github.com/repos/php/php-src/security-advisories/GHSA-wg4p-4hqh-c3g9",
+  "html_url": "https://github.com/php/php-src/security/advisories/GHSA-wg4p-4hqh-c3g9",
+  "summary": "Possible out of bounds read when XML_OPTION_SKIP_TAGSTART used",
+  "description": "This is a reocurrence of bug #72714 .\r\n\r\n### Impact\r\n\r\nOut of bounds read can leak heap contents.\r\n\r\n```php\r\n<?php\r\n$sample = \"<?xml version=\\\"1.0\\\"?><test><child/></test>\";\r\n$parser = xml_parser_create();\r\nxml_parser_set_option($parser, XML_OPTION_SKIP_TAGSTART, 100);\r\n$res = xml_parse_into_struct($parser,$sample,$vals,$index);\r\nvar_dump($vals);\r\n```\r\n\r\nIf we set `XML_OPTION_SKIP_TAGSTART` to a h",
+  "severity": "low",
+  "identifiers": [
+   {
+    "value": "GHSA-wg4p-4hqh-c3g9",
+    "type": "GHSA"
+   }
+  ],
+  "published_at": "2025-03-13T17:44:29Z",
+  "updated_at": "2025-03-13T17:44:29Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "",
+     "name": ""
+    },
+    "vulnerable_version_range": "< 8.1.32",
+    "patched_versions": "8.1.32",
+    "vulnerable_functions": []
+   },
+   {
+    "package": {
+     "ecosystem": "",
+     "name": ""
+    },
+    "vulnerable_version_range": "< 8.2.28",
+    "patched_versions": "8.2.28",
+    "vulnerable_functions": []
+   },
+   {
+    "package": {
+     "ecosystem": "",
+     "name": ""
+    },
+    "vulnerable_version_range": "< 8.3.18",
+    "patched_versions": "8.3.19",
+    "vulnerable_functions": []
+   },
+   {
+    "package": {
+     "ecosystem": "",
+     "name": ""
+    },
+    "vulnerable_version_range": "< 8.4.5",
+    "patched_versions": "8.4.5",
+    "vulnerable_functions": []
+   }
+  ],
+  "cvss_severities": {
+   "cvss_v3": {
+    "vector_string": null,
+    "score": null
+   },
+   "cvss_v4": {
+    "vector_string": null,
+    "score": null
+   }
+  },
+  "cvss": {
+   "vector_string": null,
+   "score": null
+  },
+  "state": "published"
+ },
+ {
+  "ghsa_id": "GHSA-9fcc-425m-g385",
+  "cve_id": "CVE-2024-5585",
+  "url": "https://api.github.com/repos/php/php-src/security-advisories/GHSA-9fcc-425m-g385",
+  "html_url": "https://github.com/php/php-src/security/advisories/GHSA-9fcc-425m-g385",
+  "summary": "bypass CVE-2024-1874",
+  "description": "### Summary\r\nsame as CVE-2024-1874\r\n> due to the improper handling of command line arguments on Windows, maliciously crafted arguments can inject arbitrary commands even if the bypass_shell option is enabled.\r\n\r\n### Details\r\nAdd a space at the end of filename, others are the same as [CVE-2024-1874](https://github.com/php/php-src/security/advisories/GHSA-pc52-254m-w9w7)\r\n\r\n### PoC\r\n1. Save the foll",
+  "severity": "high",
+  "identifiers": [
+   {
+    "value": "GHSA-9fcc-425m-g385",
+    "type": "GHSA"
+   },
+   {
+    "value": "CVE-2024-5585",
+    "type": "CVE"
+   }
+  ],
+  "published_at": "2024-06-09T18:37:46Z",
+  "updated_at": "2024-06-09T18:37:46Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "",
+     "name": ""
+    },
+    "vulnerable_version_range": "8.3.6",
+    "patched_versions": "8.1.29, 8.2.20, 8.3.8",
+    "vulnerable_functions": []
+   }
+  ],
+  "cvss_severities": {
+   "cvss_v3": {
+    "vector_string": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:L",
+    "score": 7.7
+   },
+   "cvss_v4": {
+    "vector_string": null,
+    "score": null
+   }
+  },
+  "cvss": {
+   "vector_string": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:L",
+   "score": 7.7
+  },
+  "state": "published"
+ },
+ {
+  "ghsa_id": "GHSA-54hq-v5wp-fqgv",
+  "cve_id": "CVE-2023-0662",
+  "url": "https://api.github.com/repos/php/php-src/security-advisories/GHSA-54hq-v5wp-fqgv",
+  "html_url": "https://github.com/php/php-src/security/advisories/GHSA-54hq-v5wp-fqgv",
+  "summary": "DoS vulnerability when parsing multipart request body",
+  "description": "### Summary\r\n\r\nThe request body parsing in PHP allows any unauthenticated attacker to consume\r\n a large amount of CPU time and trigger excessive logging.\r\n\r\n### Details\r\n\r\nThe multipart body parser processes an unlimited number of file parts.\r\nThe multipart body parser processes an unlimited number of field parts.\r\nThe multipart body parser emits an unbound number of warning messages.\r\n\r\n### Impac",
+  "severity": "high",
+  "identifiers": [
+   {
+    "value": "GHSA-54hq-v5wp-fqgv",
+    "type": "GHSA"
+   },
+   {
+    "value": "CVE-2023-0662",
+    "type": "CVE"
+   }
+  ],
+  "published_at": "2023-02-15T20:32:24Z",
+  "updated_at": "2023-02-15T20:32:24Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "php",
+     "name": "PHP"
+    },
+    "vulnerable_version_range": "<=8.0.27",
+    "patched_versions": "8.0.28",
+    "vulnerable_functions": []
+   },
+   {
+    "package": {
+     "ecosystem": "php",
+     "name": "PHP"
+    },
+    "vulnerable_version_range": ">=8.1.0, <=8.1.15",
+    "patched_versions": "8.1.16",
+    "vulnerable_functions": []
+   },
+   {
+    "package": {
+     "ecosystem": "php",
+     "name": "PHP"
+    },
+    "vulnerable_version_range": ">=8.2.0, <=8.2.2",
+    "patched_versions": "8.2.3",
+    "vulnerable_functions": []
+   }
+  ],
+  "cvss_severities": {
+   "cvss_v3": {
+    "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+    "score": 7.5
+   },
+   "cvss_v4": {
+    "vector_string": null,
+    "score": null
+   }
+  },
+  "cvss": {
+   "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+   "score": 7.5
+  },
+  "state": "published"
+ },
+ {
+  "ghsa_id": "GHSA-wpj3-hf5j-x4v4",
+  "cve_id": "CVE-2024-2756",
+  "url": "https://api.github.com/repos/php/php-src/security-advisories/GHSA-wpj3-hf5j-x4v4",
+  "html_url": "https://github.com/php/php-src/security/advisories/GHSA-wpj3-hf5j-x4v4",
+  "summary": "__Host-/__Secure- cookie bypass due to partial CVE-2022-31629 fix",
+  "description": "### Summary\r\nDue to an incomplete fix to CVE-2022-31629, network and same-site attackers can set a standard insecure cookie in the victim's browser which is treated as a `__Host-` or `__Secure-` cookie by PHP applications.\r\n\r\n### Details\r\nThe vulnerability is identical to one previously described in https://bugs.php.net/bug.php?id=81727. Unfortunatly, since CVE-2022-31629 got only partially fixed ",
+  "severity": "medium",
+  "identifiers": [
+   {
+    "value": "GHSA-wpj3-hf5j-x4v4",
+    "type": "GHSA"
+   },
+   {
+    "value": "CVE-2024-2756",
+    "type": "CVE"
+   }
+  ],
+  "published_at": "2024-04-11T17:12:53Z",
+  "updated_at": "2024-04-11T17:12:53Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "",
+     "name": ""
+    },
+    "vulnerable_version_range": "> 8.1.11, < 8.1.28",
+    "patched_versions": "8.1.28",
+    "vulnerable_functions": []
+   },
+   {
+    "package": {
+     "ecosystem": "",
+     "name": ""
+    },
+    "vulnerable_version_range": "< 8.2.18",
+    "patched_versions": "8.2.18",
+    "vulnerable_functions": []
+   },
+   {
+    "package": {
+     "ecosystem": "",
+     "name": ""
+    },
+    "vulnerable_version_range": "< 8.3.5",
+    "patched_versions": "8.3.6",
+    "vulnerable_functions": []
+   }
+  ],
+  "cvss_severities": {
+   "cvss_v3": {
+    "vector_string": null,
+    "score": null
+   },
+   "cvss_v4": {
+    "vector_string": null,
+    "score": null
+   }
+  },
+  "cvss": {
+   "vector_string": null,
+   "score": null
+  },
+  "state": "published"
+ },
+ {
+  "ghsa_id": "GHSA-jqcx-ccgc-xwhv",
+  "cve_id": "CVE-2023-3824",
+  "url": "https://api.github.com/repos/php/php-src/security-advisories/GHSA-jqcx-ccgc-xwhv",
+  "html_url": "https://github.com/php/php-src/security/advisories/GHSA-jqcx-ccgc-xwhv",
+  "summary": "Buffer overflow and overread in phar_dir_read()",
+  "description": "### Summary\r\n\r\nBuffer mismanagement in `phar_dir_read()` causes a buffer overflow and a buffer overread later.\r\n\r\n### Details\r\n\r\nhttps://github.com/php/php-src/blob/be71cadc2f899bc39fe27098042139392e2187db/ext/phar/dirstream.c#L89C1-L116\r\n\r\nThere are few issues here:\r\n* The if check `to_read == 0 || count < ZSTR_LEN(str_key)` is not right.\r\n  In particular, if this is false we know that `count >= ",
+  "severity": "critical",
+  "identifiers": [
+   {
+    "value": "GHSA-jqcx-ccgc-xwhv",
+    "type": "GHSA"
+   },
+   {
+    "value": "CVE-2023-3824",
+    "type": "CVE"
+   }
+  ],
+  "published_at": "2023-08-05T04:14:59Z",
+  "updated_at": "2023-08-05T04:14:59Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "",
+     "name": ""
+    },
+    "vulnerable_version_range": "< 8.0.30",
+    "patched_versions": "8.0.30",
+    "vulnerable_functions": []
+   }
+  ],
+  "cvss_severities": {
+   "cvss_v3": {
+    "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:L",
+    "score": 9.4
+   },
+   "cvss_v4": {
+    "vector_string": null,
+    "score": null
+   }
+  },
+  "cvss": {
+   "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:L",
+   "score": 9.4
+  },
+  "state": "published"
+ },
+ {
+  "ghsa_id": "GHSA-3qgc-jrrr-25jv",
+  "cve_id": "CVE-2024-4577",
+  "url": "https://api.github.com/repos/php/php-src/security-advisories/GHSA-3qgc-jrrr-25jv",
+  "html_url": "https://github.com/php/php-src/security/advisories/GHSA-3qgc-jrrr-25jv",
+  "summary": "PHP RCE: A Bypass of CVE-2012-1823, Argument Injection in PHP-CGI",
+  "description": "Hi, \r\n\r\nI am Orange Tsai from DEVCORE Research Team. We recently found a vulnerability on PHP. We have reproduced the issues in the latest version of PHP 8.3.6 and would like to report it to you. Please check the attached document for details.\r\n\r\nThis advisory is in accordance with our vulnerability disclosure policy, which will be publicly disclosed after 90 days. Our aim is to ensure that vulner",
+  "severity": "high",
+  "identifiers": [
+   {
+    "value": "GHSA-3qgc-jrrr-25jv",
+    "type": "GHSA"
+   },
+   {
+    "value": "CVE-2024-4577",
+    "type": "CVE"
+   }
+  ],
+  "published_at": "2024-09-28T17:37:20Z",
+  "updated_at": "2024-09-28T17:37:20Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "",
+     "name": ""
+    },
+    "vulnerable_version_range": "< 8.3.8",
+    "patched_versions": "8.3.8",
+    "vulnerable_functions": []
+   },
+   {
+    "package": {
+     "ecosystem": "",
+     "name": ""
+    },
+    "vulnerable_version_range": "< 8.2.20",
+    "patched_versions": "8.2.20",
+    "vulnerable_functions": []
+   },
+   {
+    "package": {
+     "ecosystem": "",
+     "name": ""
+    },
+    "vulnerable_version_range": "< 8.1.29",
+    "patched_versions": "8.1.29",
+    "vulnerable_functions": []
+   }
+  ],
+  "cvss_severities": {
+   "cvss_v3": {
+    "vector_string": null,
+    "score": null
+   },
+   "cvss_v4": {
+    "vector_string": null,
+    "score": null
+   }
+  },
+  "cvss": {
+   "vector_string": null,
+   "score": null
+  },
+  "state": "published"
+ }
+]

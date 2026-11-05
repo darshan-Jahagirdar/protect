@@ -12,6 +12,8 @@
     uv run python -m app.cli ack-incident <incident id>
     uv run python -m app.cli add-user --email you@example.com --name "You" --role admin
     uv run python -m app.cli reset-user --email you@example.com   # lost phone or password
+    uv run python -m app.cli run-feed ghsa                   # run one live feed now (or "all")
+    uv run python -m app.cli list-feeds                      # last run of each feed
 
 In the Docker demo:  docker compose -f docker/compose.yaml exec platform python -m app.cli ...
 """
@@ -25,7 +27,9 @@ from app.alerts.mailer import Message, mailer_for
 from app.dashboard.credentials import SETUP_LINK_HOURS, setup_link, start_setup
 from app.db import SessionLocal
 from app.enums import HostType, UserRole
-from app.models import Incident, Site, User
+from app.feeds.registry import BY_NAME, FEEDS
+from app.feeds.runner import run_feed
+from app.models import FeedRun, Incident, Site, User
 from app.services.advisories import fixture_names, load_fixture, upsert_advisory
 from app.services.alerting import (
     acknowledge,
@@ -57,6 +61,10 @@ def main(argv: list[str] | None = None) -> int:
     code.add_argument("--site-id", type=int, required=True)
 
     sub.add_parser("list-sites", help="list registered sites")
+
+    feed = sub.add_parser("run-feed", help="run a live advisory feed now (the scheduler does it)")
+    feed.add_argument("name", choices=[*BY_NAME, "all"])
+    sub.add_parser("list-feeds", help="show each live feed's last run")
 
     replay = sub.add_parser("replay-advisory", help="load a fixture advisory and match it now")
     replay.add_argument("name", choices=fixture_names())
@@ -100,6 +108,16 @@ def main(argv: list[str] | None = None) -> int:
                     s.last_report_at.isoformat(timespec="seconds") if s.last_report_at else "never"
                 )
                 print(f"#{s.id}  {s.status.value:<8} {s.url:<40} last report: {last}")
+        elif args.cmd == "run-feed":
+            return _run_feeds(settings, args.name)
+        elif args.cmd == "list-feeds":
+            for spec in FEEDS:
+                last = session.scalar(
+                    select(FeedRun).where(FeedRun.source == spec.name).order_by(FeedRun.id.desc())
+                )
+                when = last.started_at.isoformat(timespec="seconds") if last else "never"
+                state = "off" if not spec.enabled(settings) else last.status.value if last else "-"
+                print(f"{spec.name:<13} every {spec.interval_minutes:>3} min  {state:<7} {when}")
         elif args.cmd == "replay-advisory":
             advisory = upsert_advisory(session, load_fixture(args.name))
             incident = apply_advisory(session, advisory)
@@ -151,6 +169,23 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{found.email}: password and authenticator cleared, signed out everywhere")
             _print_setup_link(settings.base_url, token)
     return 0
+
+
+def _run_feeds(settings: Settings, name: str) -> int:
+    failed = 0
+    for spec in FEEDS if name == "all" else (BY_NAME[name],):
+        if not spec.enabled(settings):
+            print(f"{spec.name}: off ({spec.needs or 'feeds disabled'} not set)")
+            continue
+        run = run_feed(SessionLocal, mailer_for(settings), settings, spec)
+        if run is None:
+            continue
+        print(
+            f"{spec.name}: {run.status.value}, {run.items_new} new, {run.items_updated} updated, "
+            f"{run.items_rejected} refused" + (f" ({run.error})" if run.error else "")
+        )
+        failed += run.status.value == "failed"
+    return 1 if failed else 0
 
 
 TEST_EMAIL_BODY = """This is a test from Protect. Nothing is wrong.

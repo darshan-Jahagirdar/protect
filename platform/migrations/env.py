@@ -3,6 +3,7 @@
 from logging.config import fileConfig
 
 from alembic import context
+from sqlalchemy import event
 
 import app.models  # noqa: F401  (registers every table on Base.metadata)
 from app.db import Base, make_engine
@@ -34,6 +35,15 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     engine = make_engine(_url())
+    if engine.dialect.name == "sqlite":
+        # Batch mode rebuilds a table (copy, DROP the old one, rename). With foreign keys
+        # enforced, that DROP runs every ON DELETE action on rows pointing at the table: it
+        # deleted advisory ranges and incident links (CASCADE) and blanked who-did-what
+        # (SET NULL). So enforcement is off while migrating, and checked afterwards.
+        @event.listens_for(engine, "connect")
+        def _foreign_keys_off(dbapi_conn, _record) -> None:  # type: ignore[no-untyped-def]
+            dbapi_conn.execute("PRAGMA foreign_keys=OFF")
+
     with engine.connect() as connection:
         context.configure(
             connection=connection,
@@ -43,6 +53,11 @@ def run_migrations_online() -> None:
         )
         with context.begin_transaction():
             context.run_migrations()
+        if engine.dialect.name == "sqlite":
+            broken = connection.exec_driver_sql("PRAGMA foreign_key_check").fetchall()
+            if broken:
+                raise RuntimeError(f"migration left {len(broken)} broken references: {broken[:5]}")
+    engine.dispose()
 
 
 if context.is_offline_mode():

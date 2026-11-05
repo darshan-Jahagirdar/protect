@@ -2,7 +2,7 @@
 {% block title %}Overview · Protect{% endblock %}
 {% block content %}
 {% set can_act = viewer.user.role.value != "viewer" %}
-{% set attention = urgent | length + stale | length + warning_sites | length + disagree_sites | length + suspicious | length + (1 if fixes_not_visible else 0) %}
+{% set attention = urgent | length + stale | length + warning_sites | length + disagree_sites | length + suspicious | length + (1 if fixes_not_visible else 0) + review_matches | length + feed_problems | length %}
 
 <div class="page-head">
   <h1>Overview</h1>
@@ -59,6 +59,26 @@
       <a class="button-secondary" href="/sites/{{ s.id }}#public-view">Compare</a>
     </li>
     {% endfor %}
+    {% for a, n in review_matches %}
+    <li class="alert-item is-warn">
+      <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5M11 8v3M11 14v.01"/></svg>
+      <div class="alert-text">
+        <div class="alert-title">Possible match on {{ n }} site{{ "s" if n != 1 }}: {{ a.title }}</div>
+        <div class="alert-meta">a new advisory needs a person to confirm its versions before anything opens</div>
+      </div>
+      <a class="button-secondary" href="/advisories/{{ a.id }}">Review</a>
+    </li>
+    {% endfor %}
+    {% for h in feed_problems %}
+    <li class="alert-item is-warn">
+      <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11a9 9 0 0 1 9 9M4 4a16 16 0 0 1 16 16M5 19h.01M3 3l18 18"/></svg>
+      <div class="alert-text">
+        <div class="alert-title">Feed not working: {{ h.spec.label }}</div>
+        <div class="alert-meta">{{ h.label }}; new advisories from it aren't arriving</div>
+      </div>
+      <a class="button-secondary" href="/feeds">Feeds</a>
+    </li>
+    {% endfor %}
     {% for s in stale %}
     <li class="alert-item is-warn">
       <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M12 19.5v.01M3 3l18 18"/></svg>
@@ -102,7 +122,7 @@
   <a class="tile" href="/incidents"><div class="tile-value">{{ rows | length }}</div><div class="tile-label">Open incidents</div></a>
   <a class="tile {% if stale %}tile-warn{% endif %}" href="/sites"><div class="tile-value">{{ reporting }}<span class="of">/{{ active_sites }}</span></div><div class="tile-label">Sites reporting</div></a>
   <section class="tile {% if warning_sites %}tile-alert{% endif %}"><div class="tile-value">{{ warning_sites | length }}</div><div class="tile-label">Sites with warning signs</div></section>
-  <a class="tile" href="/advisories"><div class="tile-value">{{ needs_review }}</div><div class="tile-label">Advisories to review</div></a>
+  <a class="tile {% if review_matches %}tile-warn{% endif %}" href="/advisories#review"><div class="tile-value">{{ needs_review }}</div><div class="tile-label">Advisories to review</div></a>
 </div>
 
 <div class="eyebrow">Site health <span class="count">· {{ health | length }}</span></div>

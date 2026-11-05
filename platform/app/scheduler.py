@@ -1,12 +1,15 @@
 """In-process scheduled jobs. The platform runs as ONE process, so each job runs once."""
 
 import logging
+from datetime import UTC, datetime, timedelta
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from app.alerts.mailer import mailer_for
 from app.db import SessionLocal
+from app.feeds.registry import FEEDS
+from app.feeds.runner import run_feed
 from app.services.alerting import run_alert_cycle, run_digest
 from app.services.observations import run_observer
 from app.settings import Settings
@@ -35,6 +38,22 @@ def start(settings: Settings) -> BackgroundScheduler:
         max_instances=1,
         coalesce=True,
     )
+    # Live advisory feeds, staggered so they don't all start at once after a restart.
+    first = datetime.now(UTC) + timedelta(seconds=30)
+    for i, feed in enumerate(FEEDS):
+        if not feed.enabled(settings):
+            log.info("feed %s is off (%s)", feed.name, feed.needs or "feeds disabled")
+            continue
+        scheduler.add_job(
+            run_feed,
+            "interval",
+            minutes=feed.interval_minutes,
+            next_run_time=first + timedelta(seconds=20 * i),
+            id=f"feed-{feed.name}",
+            args=[SessionLocal, mailer, settings, feed],
+            max_instances=1,
+            coalesce=True,
+        )
     scheduler.start()
     log.info(
         "scheduler started: alerts every 60s, observer every 5 min, digest daily at %02d:%02d UTC",

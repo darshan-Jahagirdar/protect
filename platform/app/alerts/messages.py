@@ -26,6 +26,12 @@ class IncidentSummary:
         return self.vulnerable + self.needs_check
 
 
+def one_line(text: str) -> str:
+    """Titles come from feeds. A line break in an email subject broke every send (and could
+    add headers), so subjects and title lines are always flattened to one line."""
+    return " ".join("".join(" " if ord(ch) < 32 or ord(ch) == 127 else ch for ch in text).split())
+
+
 def _prefix(s: IncidentSummary) -> str:
     return "[Protect] " + ("[DRILL] " if s.drill else "")
 
@@ -46,7 +52,7 @@ def _facts(s: IncidentSummary) -> str:
     ids = ", ".join(s.aliases) if s.aliases else "none"
     return (
         f"{'[DRILL] practice incident, not a real vulnerability.\n' if s.drill else ''}"
-        f"{s.priority.value} incident: {s.title}\n"
+        f"{s.priority.value} incident: {one_line(s.title)}\n"
         f"Advisory ids: {ids}\n"
         f"Sites affected: {s.affected} (vulnerable: {s.vulnerable}, needs check: {s.needs_check})\n"
     )
@@ -54,7 +60,7 @@ def _facts(s: IncidentSummary) -> str:
 
 def new_incident(s: IncidentSummary, base_url: str) -> tuple[str, str]:
     subject = f"{_prefix(s)}{s.priority.value}: {_sites(s.affected)} affected by {s.title}"
-    return subject, _facts(s) + _footer(s, base_url)
+    return one_line(subject), _facts(s) + _footer(s, base_url)
 
 
 def more_sites(s: IncidentSummary, previous: int, base_url: str) -> tuple[str, str]:
@@ -62,7 +68,7 @@ def more_sites(s: IncidentSummary, previous: int, base_url: str) -> tuple[str, s
         f"{_prefix(s)}{s.priority.value} update: now {_sites(s.affected)} affected by {s.title}"
     )
     body = f"The number of affected sites went from {previous} to {s.affected}.\n\n"
-    return subject, body + _facts(s) + _footer(s, base_url)
+    return one_line(subject), body + _facts(s) + _footer(s, base_url)
 
 
 def unacknowledged(s: IncidentSummary, minutes: int, base_url: str) -> tuple[str, str]:
@@ -74,12 +80,13 @@ def unacknowledged(s: IncidentSummary, minutes: int, base_url: str) -> tuple[str
         f"Nobody has acknowledged this alert for {minutes} minutes. "
         'Open the dashboard and press "I\'m on it".\n\n'
     )
-    return subject, body + _facts(s) + _footer(s, base_url)
+    return one_line(subject), body + _facts(s) + _footer(s, base_url)
 
 
 def digest(summaries: list[IncidentSummary], base_url: str) -> tuple[str, str]:
     lines = [
-        f"- {'[DRILL] ' if s.drill else ''}{s.priority.value} {s.title}: {_sites(s.affected)}"
+        f"- {'[DRILL] ' if s.drill else ''}{s.priority.value} {one_line(s.title)}: "
+        f"{_sites(s.affected)}"
         f"  {base_url.rstrip('/')}/incidents/{s.incident_id}"
         for s in summaries
     ]
@@ -89,3 +96,33 @@ def digest(summaries: list[IncidentSummary], base_url: str) -> tuple[str, str]:
         "Site details stay behind the dashboard login."
     )
     return subject, body
+
+
+def review_needed(
+    advisory_id: int, title: str, aliases: tuple[str, ...], sites: int, base_url: str
+) -> tuple[str, str]:
+    """A feed advisory whose versions a person must confirm may affect some sites."""
+    subject = f"[Protect] Review needed: possible match on {_sites(sites)}: {title}"
+    body = (
+        "A new advisory came in without versions Protect can trust on its own. If its likely "
+        f"versions are right, it affects {_sites(sites)}.\n"
+        "Nothing is opened until a person confirms the affected versions.\n\n"
+        f"Advisory: {one_line(title)}\n"
+        f"Advisory ids: {', '.join(aliases) if aliases else 'none'}\n\n"
+        "Review it here:\n"
+        f"{base_url.rstrip('/')}/advisories/{advisory_id}\n\n"
+        "This alert lists counts only. Site details stay behind the dashboard login."
+    )
+    return one_line(subject), body
+
+
+def feed_failing(label: str, failures: int, base_url: str) -> tuple[str, str]:
+    subject = f"[Protect] Feed problem: {label} failed {failures} times in a row"
+    body = (
+        f"Protect couldn't read {label} {failures} times in a row. New advisories from this "
+        "source aren't arriving until it works again. Protect keeps retrying on its own.\n\n"
+        "See the feed status and the last error here:\n"
+        f"{base_url.rstrip('/')}/feeds\n\n"
+        "You'll get this once per outage."
+    )
+    return one_line(subject), body

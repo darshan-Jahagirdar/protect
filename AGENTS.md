@@ -61,7 +61,8 @@ If a change would break any of these, **stop and ask the user**. Don't look for 
 - **Stack:** Python 3.12, managed with **uv**. FastAPI, Jinja2, SQLAlchemy 2, Alembic, pydantic v2, APScheduler, httpx, PyNaCl, PyYAML, python-multipart, segno (QR codes for sign-in setup). Pages are plain HTML forms with no JavaScript; if a page ever needs HTMX, serve it locally (no CDN) and keep the CSP strict.
 - **AI providers** are called over plain REST with httpx from `app/ai/providers.py` only. No vendor SDKs.
 - **Style:** type hints everywhere, small modules, and no framework magic you'd have to explain.
-- **Migrations:** every schema change is an Alembic migration.
+- **Migrations:** every schema change is an Alembic migration. On SQLite, `migrations/env.py` turns foreign-key enforcement off while migrating and runs `PRAGMA foreign_key_check` afterwards: batch mode rebuilds tables, and with enforcement on the rebuild's DROP ran every ON DELETE action (it wiped advisory ranges and incident links on 2026-11-04). Never remove that; `tests/test_models.py::test_migrations_keep_linked_rows` guards it.
+- **Feeds** (`app/feeds/`) only download, and only from the hosts in `feeds/http.py` (DESIGN §4.3). They store advisories through `services/advisories.py` and never decide exposure. Tests use the recorded samples in `tests/feeds/samples/` and a fake fetcher; never the network.
 - **Checklists** are YAML templates in `app/checklists/templates/`, reviewed by a person. Never generate checklist steps with AI.
 - **Drill advisories** (`drill=true`) must show `[DRILL]` in every view, alert and draft.
 
@@ -88,6 +89,8 @@ uv run uvicorn app.main:app --reload --port 8000           # or use the `platfor
 python -m app.cli add-site | new-code | list-sites
 python -m app.cli replay-advisory php2shell|drill-plugin    # match now; alerts go out on the next scheduler run
 python -m app.cli list-incidents | send-alerts | send-digest | ack-incident <id>
+python -m app.cli run-feed ghsa|php-releases|phpnet-news|kev|nvd|wordfence|all   # the scheduler runs them on its own
+python -m app.cli list-feeds                      # last run of each feed
 python -m app.cli test-email                    # send a test email to the alert recipients
 python -m app.cli add-user --email you@example.com --name "You" --role admin   # prints a one-time setup link
 python -m app.cli reset-user --email you@example.com                          # lost phone or password: new setup link

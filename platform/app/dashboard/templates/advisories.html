@@ -1,7 +1,33 @@
 {% extends "base.html" %}
 {% block title %}Advisories · Protect{% endblock %}
 {% block content %}
-<h1>Advisories</h1>
+<div class="page-head">
+  <h1>Advisories</h1>
+  <a class="button-secondary" href="/feeds">Feed status</a>
+</div>
+
+<h2 id="review">Waiting for review <span class="muted small">· {{ queue | length }}</span></h2>
+<p class="muted small">These came from a feed without versions Protect can trust on its own. Nothing is opened until a person confirms which versions are affected. "May affect" counts sites whose versions fall in the likely ranges.</p>
+{% if queue %}
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Advisory</th><th>May affect</th><th>Why it needs a person</th><th>Source</th><th>Published</th></tr></thead>
+  <tbody>
+  {% for a, sites in queue %}
+    <tr>
+      <td><a href="/advisories/{{ a.id }}">{{ a.title }}</a><div class="small muted">{{ a.aliases | join(", ") }}</div></td>
+      <td>{% if sites %}<strong>{{ sites }} site{{ "s" if sites != 1 }}</strong>{% else %}<span class="muted">none</span>{% endif %}</td>
+      <td class="small">{{ a.review_reason or "free-text source" }}</td>
+      <td>{{ a.source }}</td>
+      <td class="small">{{ a.published_at.strftime("%Y-%m-%d") if a.published_at else "?" }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<div class="panel"><span class="muted">Nothing to review.</span></div>
+{% endif %}
 
 {% if viewer.user.role.value != "viewer" %}
 <h2>Replay an advisory</h2>
@@ -17,22 +43,22 @@
 </div>
 {% endif %}
 
-<h2>Known advisories</h2>
+<h2>Known advisories <span class="muted small">· {{ advisories | length }}</span></h2>
 <div class="table-wrap">
 <table>
   <thead><tr><th>Advisory</th><th>Ids</th><th>CVSS</th><th>Exploited</th><th>Review</th><th>Source</th></tr></thead>
   <tbody>
   {% for a in advisories %}
     <tr>
-      <td>{% if a.drill %}<span class="badge badge-drill">DRILL</span> {% endif %}{{ a.title }}</td>
+      <td>{% if a.drill %}<span class="badge badge-drill">DRILL</span> {% endif %}<a href="/advisories/{{ a.id }}">{{ a.title }}</a></td>
       <td class="small">{{ a.aliases | join(", ") }}</td>
       <td>{{ a.cvss_score if a.cvss_score is not none else "?" }}</td>
       <td>{% if a.kev %}CISA KEV{% elif a.exploited %}reported{% else %}no{% endif %}</td>
       <td>{{ a.review_status.value | replace("_", " ") }}</td>
-      <td>{% if a.source_url %}<a href="{{ a.source_url }}" rel="noopener noreferrer" target="_blank">{{ a.source }}</a>{% else %}{{ a.source }}{% endif %}</td>
+      <td>{{ a.source }}</td>
     </tr>
   {% else %}
-    <tr><td colspan="6" class="muted">No advisories yet. Live feeds arrive in milestone 2.</td></tr>
+    <tr><td colspan="6" class="muted">No advisories yet. The live feeds add them as they're published.</td></tr>
   {% endfor %}
   </tbody>
 </table>

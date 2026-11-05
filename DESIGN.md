@@ -1,6 +1,6 @@
 # TransFunnel Protect — Design
 
-Status: v1 design, agreed 2026-10-22; updated 2026-10-23 to match the code as built (milestone 1 steps 1–12). Owner: Darshan B Jahagirdar (sole builder and maintainer).
+Status: v1 design, agreed 2026-10-22; updated 2026-10-23 to match the code as built (milestone 1 steps 1–12), and 2026-11-04 for live feeds (P1). Owner: Darshan B Jahagirdar (sole builder and maintainer).
 Related docs (Claude Docs): [GTM](https://claude.ai/artifact/CqXX1YdKiuXtyU1PQ83UuM) · [Build plan](https://claude.ai/artifact/M3mtBXQqBcez9xheFecvae) · [Data and compliance](https://claude.ai/artifact/S2wkNVaAxjNRD7bPVi3rgF).
 Progress and decisions are logged in [PROGRESS.md](PROGRESS.md). Rules for coding agents are in [AGENTS.md](AGENTS.md).
 
@@ -179,26 +179,46 @@ The API is rate-limited per key and per source IP, and Cloudflare sits in front 
 
 ### 4.3 Advisory watchers (feeds)
 
-Feeds are scheduled jobs that only download data.
+Feeds are scheduled jobs that only download data. Built 2026-11-04 (P1) in `platform/app/feeds/`; each runs in the in-process scheduler.
 
-| Source | What we get | Poll | Role |
+| Feed (`source`) | What we get | Poll | Role |
 |---|---|---|---|
-| php.net releases JSON (`/releases/?json&version=8`, per branch) | Latest release for each PHP branch | 15 min | PHP core: which version is current |
-| php.net news feed (`/feed.atom`) | Security release announcements | 15 min | Early signal |
-| GitHub `php/php-src` security advisories (API) | Structured PHP core advisories (GHSA) | 15 min | **Primary** for PHP core |
-| CISA KEV JSON | Known-exploited flag | 1 h | Raises priority |
-| Wordfence Intelligence vulnerability feed (free, API key; confirm terms) | WordPress core, plugin and theme vulnerabilities with slugs and version ranges | 1 h | **Primary** for WordPress |
-| NVD API 2.0 (incremental, `lastModStartDate`) | CVE details, CVSS, CPE | 2 h | Fallback and enrichment only (NVD lags) |
-| Ubuntu CVE API and Debian security tracker | Which distro package versions fix each CVE | daily | Distro-patched PHP and libraries |
-| OSV.dev (PyPI) | Flaws in Protect's own Python dependencies | daily | Protect watches itself (M2) |
+| php.net releases JSON (`php-releases`: `/releases/?json&version=8`, then per branch) | Supported branches and the latest release of each | 15 min | Tells "old branch, no fix coming" from "the advisory doesn't say" |
+| GitHub `php/php-src` security advisories (`ghsa`, REST API, no key) | Structured PHP core advisories, one range per branch | 15 min | **Primary** for PHP core |
+| php.net news feed (`phpnet-news`, `/feed.atom`) | Security announcements (free text) | 15 min | Early signal; always `needs_review` |
+| Wordfence Intelligence production feed (`wordfence`, free API key) | WordPress core, plugin and theme vulnerabilities with slugs and ranges | 1 h | **Primary** for WordPress. Off until `PROTECT_WORDFENCE_API_KEY` is set |
+| CISA KEV JSON (`kev`) | Known-exploited CVE list | 1 h | Raises priority (+30); never creates advisories |
+| NVD API 2.0 (`nvd`, incremental `lastModStartDate`, no key) | PHP and WordPress core CVEs, CVSS | 2 h | Fallback and enrichment only (NVD lags) |
+| Ubuntu CVE API and Debian security tracker | Which distro package versions fix each CVE | daily | **Not built yet** (P1b) |
+| OSV.dev (PyPI) | Flaws in Protect's own Python dependencies | daily | Protect watches itself (M2, not built) |
+
+**Downloads** (`feeds/http.py`): https only, and only to `www.php.net`, `api.github.com`, `www.wordfence.com`, `www.cisa.gov` and `services.nvd.nist.gov`. Adding a host is a rule change. Redirects are followed by hand and only to those hosts; an API key is never sent to a different host. Every download has a size cap and spills to a temporary file, so the 1 GB server can't run out of memory. Wordfence's feed (the whole database in one JSON object) is read one record at a time.
+
+**Feed data is hostile** (`feeds/clean.py`): titles become one line (no line breaks, bidi or zero-width characters; the old "line break breaks the alert email" bug), text is capped and shown escaped, links must be absolute `http(s)`, ids, CVSS scores and vectors must match strict formats, and anything else is dropped. An item that fails the checks is skipped and counted as "refused"; the rest of the run carries on. Error messages stored or shown are our own wording, never text from a response.
 
 **Review gate:**
-- **Structured sources** with machine-readable ranges (GHSA, Wordfence, OSV) are ingested as `confirmed`.
-- **Free-text sources** (news feed, NVD without usable ranges) come in as `needs_review`. The dashboard asks a person to confirm the affected ranges and fixed versions. Until then the alert says "possible match, review needed".
-- **Manual entry and replay**: the team can enter an advisory by hand, for example from a leak or a vendor email. The demo uses **Replay advisory**, which loads fixtures from `platform/fixtures/advisories/`.
+- **Structured sources** (GitHub, Wordfence) come in as `confirmed` when every range reads cleanly. Anything odd goes to `needs_review` with Protect's best reading filled in, and the reason shown.
+- **PHP ranges** (`feeds/php_ranges.py`): GitHub lists one fix per branch ("< 8.3.36, patched 8.3.36"). Literally, "< 8.2.35" also covers 8.1 and "< 8.4.24" covers 8.3. Protect reads each line as "this branch, fixed in this release", then looks at the branches the advisory doesn't list:
+  - older than every supported branch (php.net's list): `unsupported` (vulnerable, "upgrade to a supported branch");
+  - a supported branch that isn't listed: `unsure`, and the advisory waits for a person. It never becomes "safe";
+  - newer than every listed branch: fixed (GitHub's own reading).
+  - "< 8.3.18" with "patched 8.3.19" uses the later release (it can only over-warn) and adds a note to the text. Free text such as "8.3.6" can't be read and waits for review.
+- **Free-text sources** (php.net news, NVD) always come in as `needs_review`. All php.net security posts from one day are one advisory, only from the last 30 days. NVD only adds a CVE we don't know if it was published in the last 90 days (NVD re-edits old CVEs constantly).
+- **The review queue** (Advisories page) shows each advisory with "may affect N sites" (a dry run of the engine) and why it needs a person. A responder edits the ranges as plain lines (`php: from 8.4.0 fixed 8.4.24`, `… until 8.2.0 unsupported`, `… last 1.4.2`), settles every `unsure` line, and confirms (matching runs at once), or rejects with a note. Until then the advisory opens nothing; if it may affect a site, the team gets one "Review needed: possible match on N sites" email (counts only).
+- **Manual entry and replay**: the team can enter an advisory by hand, for example from a leak or a vendor email. The demo uses **Replay advisory**, which loads fixtures from `platform/fixtures/advisories/`. (A manual-entry form isn't built yet; use the review form on a feed advisory, or a fixture.)
 - **Drill advisories** are marked `drill=true`. Every view, alert and draft they produce is labelled `[DRILL]`.
 
-Each feed run is recorded in `feed_runs`. A feed that fails three runs in a row raises an internal alert.
+**Who may change what** (`services/advisories.py`):
+- A replayed or hand-entered advisory, or one a person has reviewed, belongs to people. A feed only adds aliases and fills blanks (CVSS, link, date). It never changes its ranges, title or review status.
+- Between feeds, GitHub and Wordfence (machine-readable ranges) replace NVD and php.net news data; weaker sources only fill blanks. php.net news advisories carry only their own id (`php.net-news:<date>`), so a post that mentions several CVEs can't merge unrelated advisories.
+- "Known exploited" (KEV) and "exploited" (a person) only go from no to yes through feeds. A person can remove their own mark.
+- Each feed item's content hash is kept in `feed_items`, so an unchanged item is skipped without touching anything.
+
+**Matching** stays in the engine: a confirmed advisory that is new or whose ranges, CVSS or KEV flag changed is matched against every active site (`services/incidents.py`). The AI is never involved.
+
+Each feed run is recorded in `feed_runs` (status, new / updated / refused counts, our error text). `feed_state` keeps each feed's cursor and small reference data (supported PHP branches, the KEV list). A feed that fails three runs in a row sends one internal email ("Feed problem: … failed 3 times in a row", counts only), and nothing more until it has worked again. The **Feeds** page shows each feed's state (working, retrying, failed N times, late, off), the last runs, the supported PHP branches and the KEV count; a broken or late feed also appears under "Needs you now".
+
+**Wordfence terms** (read 2026-11-04, Q9): free, including commercial use; needs a wordfence.com account and an API key kept private; Wordfence can revoke access at any time. Records carry copyright notices (Defiant, and MITRE for CVE text), which are stored and shown with the advisory. Only records for WordPress core and for plugins and themes some site has are stored; "informational" records (no real-world impact) are skipped. We send Wordfence nothing about clients, so it isn't a subprocessor.
 
 ### 4.4 Component catalogue (the naming table)
 
@@ -277,6 +297,8 @@ The score is simple, explainable, and always shown with its reasons.
 | P3 | 30–49 |
 | P4 | < 30 |
 
+**Exploited:** CISA KEV sets it from the feed. A responder can also mark an advisory "exploited" on its page from credible reports (a note is required, it is audit-logged, and every open case is rescored at once). Feeds never set or clear the person's mark.
+
 Unknown CVSS is scored as high (+25), never low. If an advisory has no verified CVSS vector, its `network_unauthenticated` flag (taken from the advisory text) decides the "remote and unauthenticated" points; otherwise the vector does. The implementation is in `platform/app/engine/scoring.py`.
 
 `needs_check` gets the same score as `vulnerable` but is labelled differently. For example, PHP2Shell scores 40 + 30 + 10 = **80, which is P1**, on every SAPI: mod_php carries the most risk, but PHP-FPM is still critical.
@@ -286,6 +308,8 @@ Unknown CVSS is scored as high (+25), never low. If an advisory has no verified 
 - An **incident** is one real-world event. It can have several advisories: PHP2Shell is one incident with two CVEs. The client gets **one** message per incident.
 - A **case** is one site within one incident.
 - A new confirmed advisory that matches at least one site opens an incident, or joins an open one if its aliases overlap. The team can merge or split incidents by hand.
+- **One release, one incident (feeds, 2026-11-04):** feed advisories with the same components, affected versions and fix (`advisories.group_key`), such as the eleven PHP flaws fixed in 8.3.35, join one open incident, titled for example "PHP: 11 security flaws, fixed in 8.2.34, 8.3.35, 8.4.26, 8.5.11". The client action is the same upgrade, so it's one alert and one client message, not eleven. Replayed and hand-entered advisories group only by aliases.
+- **Worst of the incident's advisories:** a case follows the worst advisory in its incident for that site component (any affected beats safe, vulnerable beats needs_check, then the highest score). One advisory saying "fixed" never verifies a case another advisory in the same incident still flags.
 
 Each case tracks four things separately:
 
@@ -336,6 +360,9 @@ An incident **closes** when every case is `verified`, `not_affected`, `false_pos
 - The link points to `/incidents/<random id>`. It needs a dashboard login.
 - **Acknowledge** in the dashboard ("I'm on it"). If there's no ack within 15 minutes, the alert is re-sent to the backup person, and to Teams if configured. While no backup person is set (the current state), the re-alert goes to the primary again with "[UNACKNOWLEDGED]" in the subject.
 - One alert per incident, plus one update when the number of affected sites goes up. No repeat alerts for the same case.
+- **Review needed** (feeds): one email per advisory waiting for review that may affect a site: "[Protect] Review needed: possible match on N sites: <title>", counts only, with a link to the advisory page.
+- **Feed problem:** one email when a feed fails three runs in a row (section 4.3).
+- **Subjects are always one line:** titles come from feeds, so every subject and title line is flattened (`messages.one_line`). A line break in a title used to make every send fail.
 
 **How it's built** (`platform/app/services/alerting.py`, `app/alerts/`):
 - **Driven by state:** a scheduler job runs every 60 seconds and works out from the database what is due. A failed send (mail server down) records nothing and is retried on the next run, so nothing goes out twice.
@@ -449,7 +476,8 @@ Fix steps come from reviewed templates, never from AI. They live in `platform/ap
   - Sites: inventory, last report, observer results, enrollment
   - Incident: summary, cases table, timeline
   - Case: checklist, status buttons, file checks, drafts
-  - Advisories: including the review queue, replay and manual entry
+  - Advisories: the review queue ("may affect N sites", why it needs a person), replay, and every known advisory; each advisory has its own page (ranges, source text, attribution, review form, "mark as exploited")
+  - Feeds: each feed's health, recent runs, supported PHP branches, the KEV count
   - Settings: users, alert recipients, mu-plugin allowlists
 - **Tech:** FastAPI and Jinja2 with **autoescape on**; plain HTML forms with no JavaScript. No SPA.
 - **Look (redesign 2026-11-03):** dark-first with a light mode, one stylesheet (`static/style.css`, version-stamped so a deploy is picked up at once), no inline styles. A faint circuit-trace texture behind the page, monospace for numbers, times and section labels, and small corner ticks on panels: subtle, never decorative noise. Colour only carries meaning: red = needs a fix, amber = look at it, green = fine, grey = not connected, purple = drill.
@@ -487,7 +515,7 @@ Other metrics:
 |---|---|
 | **Heartbeat** | The scheduler pings healthchecks.io (free) every 5 minutes. If the pings stop, healthchecks.io emails the team: Protect is down. |
 | **Stale sites** | A site is `stale` after 3 hours with no report. At 24 hours it's included in the daily digest. In an open P1 or P2 incident, stale affected sites are flagged prominently. |
-| **Feed failures** | Three failed runs in a row raise an internal alert. |
+| **Feed failures** | Three failed runs in a row raise one internal email; the Feeds page and "Needs you now" show broken or late feeds (built 2026-11-04). |
 | **Self-watch (M2)** | Protect's own Python dependencies are checked against OSV daily, and the host OS is listed as a pseudo-site. |
 
 ---
@@ -555,7 +583,7 @@ The production database is SQLite (WAL mode), accessed through SQLAlchemy 2 with
 | `site_components` | site_id, component_key, version_raw, version_parsed (json), distro, active, first_seen, last_seen, version_since (when the current version was first reported) (the current inventory, rebuilt from the latest report) |
 | `nonces` | key_id, nonce, seen_at (pruned after 15 min) |
 | `observations` | id, site_id, at, http_status, server_header, powered_by, behind_cloudflare, tls_expires_at, error |
-| `advisories` | id, aliases (json: CVE, GHSA, Wordfence id…), source, source_url, title, summary_text, cvss_score, cvss_vector, network_unauthenticated, kev, exploited, published_at, review_status (`confirmed`/`needs_review`/`rejected`), drill, created_at |
+| `advisories` | id, aliases (json: CVE, GHSA, `wordfence:<uuid>`, `php.net-news:<date>`…), source (`replay`/`manual`/`ghsa`/`wordfence`/`nvd`/`phpnet-news`), source_url (http(s) only), title (one line), summary_text, cvss_score, cvss_vector, network_unauthenticated, kev, exploited, published_at, review_status (`confirmed`/`needs_review`/`rejected`), drill, created_at, group_key, review_reason, reviewed_by, reviewed_at, review_note, review_alerted_at, attribution |
 | `advisory_affects` | advisory_id, component_key, ranges (json, OSV-style), fixed_versions (json), distro_fixes (json) |
 | `component_aliases` | component_key, alias_type (`cpe`/`wordfence`/`wporg`/`ubuntu_pkg`/`debian_pkg`), alias_value |
 | `incidents` | id (random), title, kind, priority, status (`open`/`monitoring`/`closed`), drill, created_at, closed_at |
@@ -566,7 +594,9 @@ The production database is SQLite (WAL mode), accessed through SQLAlchemy 2 with
 | `ai_results` | id, incident_id, case_id, task, provider, model, prompt_version, input_hash, content, created_at |
 | `drafts` | id, incident_id, case_id, content, ai_result_id, approved_by, approved_at, sent_marked_by, sent_at |
 | `alerts` | id, incident_id, channel, kind (new/update/escalation), priority, sites_count, recipients_group, sent_at, acked_by, acked_at, escalated_at |
-| `feed_runs` | id, source, started_at, finished_at, status, items_new, error |
+| `feed_runs` | id, source, started_at, finished_at, status, items_new, items_updated, items_rejected, error |
+| `feed_state` | source, data (json: cursor, supported PHP branches, KEV list…), content_hash, failure_alerted_at, updated_at |
+| `feed_items` | source, item_id, content_hash, advisory_id, first_seen, last_seen (what each feed item last looked like) |
 | `users` | id, email, display_name, role, password_hash, totp_secret_enc (encrypted), totp_last_step, failed_logins, locked_until, setup_token_hash, setup_expires_at, session_version, created_at, disabled_at (our team only) |
 | `audit_log` | id, at, actor_user_id, action, target, data (json) (logins, user and setting changes) |
 
@@ -687,10 +717,11 @@ Protect/
     │   ├── ai/             inputs (allowlist), prompts, providers, service
     │   ├── checklists/     loader + templates/<kind>/<host_type>.yaml
     │   ├── dashboard/      auth, routes, templates/, static/style.css
-    │   └── feeds/          empty: live advisory feeds arrive in M2 (P1)
+    │   └── feeds/          http (download rules), clean (hostile data), php_ranges, ghsa, phpnet,
+    │                       kev, wordfence, nvd, runner (feed_runs, failure email), registry, status
     ├── migrations/versions/
     ├── fixtures/advisories/   php2shell.json, drill-plugin.json
-    └── tests/              engine/, api/, and one file per feature
+    └── tests/              engine/, api/, feeds/ (with recorded samples), and one file per feature
 ```
 
 **Platform stack:** Python 3.12 (uv), FastAPI, Jinja2, SQLAlchemy 2 + Alembic, pydantic v2 + pydantic-settings, APScheduler, httpx (also used for the AI providers' REST APIs; no vendor SDKs), PyNaCl (Ed25519), PyYAML (checklists), python-multipart (forms), pytest and ruff.
@@ -720,6 +751,8 @@ Protect/
 
 During the demo, say what's real and what's simulated. Simulated: the advisory arriving (real PHP2Shell data, replayed) and the Cloudflare step (manual in v1). Everything else is real.
 
+**Since live feeds (2026-11-04):** the demo database also holds the real PHP advisories from GitHub. Resetting the site to PHP 8.3.30 therefore opens the PHP2Shell P1 (from the replayed advisory) **and** the real incidents for every 2026 PHP security release after 8.3.30 (one per release, P2–P4). That's honest (8.3.30 really is missing those fixes) and shows the feeds working; point to the PHP2Shell P1 first. Close all of them after the demo, or the next reset reopens them without new emails.
+
 ---
 
 ## 12. Open questions and assumptions
@@ -736,5 +769,5 @@ Answers as of 2026-10-22. The live status is in [PROGRESS.md](PROGRESS.md).
 | Q6 | Who is the backup person for alerts? | No one yet. Escalation re-alerts the primary and mirrors to Teams if configured. Name a backup before founding clients |
 | Q7 | Which production VM provider? | Free if possible: Oracle Cloud Always Free (Mumbai or Hyderabad). Oracle can reclaim idle free VMs. Fallback: a small paid VM in India |
 | Q8 | Do the Gemini trial credits cover `gemini-4-argon`, and can it run in an India region? | The user will check. The swappable AI module limits the risk |
-| Q9 | Wordfence Intelligence feed terms for internal commercial use | To be read when building feeds. Fallback: WPScan API or Patchstack |
+| Q9 | Wordfence Intelligence feed terms for internal commercial use | **Answered 2026-11-04:** free, commercial use allowed, API key from a wordfence.com account (section 4.3). The user approved using it |
 | Q10 | Final product and plugin name | "Protect" for now, plugin slug `protect-reporter`. Trademark check before client rollout |

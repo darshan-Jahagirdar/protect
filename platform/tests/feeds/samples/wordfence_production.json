@@ -1,0 +1,280 @@
+{
+ "0b5f1c7a-1111-4a8e-9c1d-000000000001": {
+  "id": "0b5f1c7a-1111-4a8e-9c1d-000000000001",
+  "informational": false,
+  "references": [
+   "https://www.wordfence.com/threat-intel/vulnerabilities/wordpress-core/example"
+  ],
+  "cwe": null,
+  "cvss": {
+   "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
+   "score": 8.1,
+   "rating": "High"
+  },
+  "cve": "CVE-2026-119977",
+  "cve_link": null,
+  "researchers": [],
+  "published": "2026-10-30 12:00:00",
+  "updated": "2026-11-01 08:00:00",
+  "copyrights": {
+   "message": "This record contains material that is subject to copyright",
+   "defiant": {
+    "notice": "Copyright 2012-2026 Defiant Inc.",
+    "license": "(licence text)",
+    "license_url": "https://www.wordfence.com/wti-community-edition-terms-and-conditions/"
+   },
+   "mitre": {
+    "notice": "Copyright 1999-2026 The MITRE Corporation",
+    "license": "(licence text)",
+    "license_url": "https://www.cve.org/Legal/TermsOfUse"
+   }
+  },
+  "title": "WordPress Core 4.7.0 - 7.1.3 - Unauthenticated Remote Code Execution via Upgrade Window",
+  "software": [
+   {
+    "type": "core",
+    "name": "WordPress",
+    "slug": "wordpress",
+    "affected_versions": {
+     "4.7.0 - 7.1.3": {
+      "from_version": "4.7.0",
+      "from_inclusive": true,
+      "to_version": "7.1.3",
+      "to_inclusive": true
+     }
+    },
+    "patched": true,
+    "patched_versions": [
+     "7.1.4"
+    ],
+    "remediation": "Update to version 7.1.4"
+   }
+  ],
+  "description": "Constructed test record in Wordfence's documented format."
+ },
+ "0b5f1c7a-1111-4a8e-9c1d-000000000002": {
+  "id": "0b5f1c7a-1111-4a8e-9c1d-000000000002",
+  "informational": false,
+  "references": [
+   "javascript:alert(1)"
+  ],
+  "cwe": null,
+  "cvss": {
+   "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N",
+   "score": 6.1,
+   "rating": "Medium"
+  },
+  "cve": null,
+  "cve_link": null,
+  "researchers": [],
+  "published": "2026-10-30 12:00:00",
+  "updated": "2026-11-01 08:00:00",
+  "copyrights": {
+   "message": "This record contains material that is subject to copyright",
+   "defiant": {
+    "notice": "Copyright 2012-2026 Defiant Inc.",
+    "license": "(licence text)",
+    "license_url": "https://www.wordfence.com/wti-community-edition-terms-and-conditions/"
+   },
+   "mitre": {
+    "notice": "Copyright 1999-2026 The MITRE Corporation",
+    "license": "(licence text)",
+    "license_url": "https://www.cve.org/Legal/TermsOfUse"
+   }
+  },
+  "title": "Hello Dolly <= 1.7.2 - Cross-Site Scripting\nInjected: header",
+  "software": [
+   {
+    "type": "plugin",
+    "name": "Hello Dolly",
+    "slug": "hello-dolly",
+    "affected_versions": {
+     "* - 1.7.2": {
+      "from_version": "*",
+      "from_inclusive": true,
+      "to_version": "1.7.2",
+      "to_inclusive": true
+     }
+    },
+    "patched": true,
+    "patched_versions": [
+     "1.7.3"
+    ]
+   }
+  ]
+ },
+ "0b5f1c7a-1111-4a8e-9c1d-000000000003": {
+  "id": "0b5f1c7a-1111-4a8e-9c1d-000000000003",
+  "informational": false,
+  "references": [],
+  "cwe": null,
+  "cvss": null,
+  "cve": null,
+  "cve_link": null,
+  "researchers": [],
+  "published": "2026-10-30 12:00:00",
+  "updated": "2026-11-01 08:00:00",
+  "copyrights": {
+   "message": "This record contains material that is subject to copyright",
+   "defiant": {
+    "notice": "Copyright 2012-2026 Defiant Inc.",
+    "license": "(licence text)",
+    "license_url": "https://www.wordfence.com/wti-community-edition-terms-and-conditions/"
+   },
+   "mitre": {
+    "notice": "Copyright 1999-2026 The MITRE Corporation",
+    "license": "(licence text)",
+    "license_url": "https://www.cve.org/Legal/TermsOfUse"
+   }
+  },
+  "title": "Some Plugin Nobody Has <= 2.0 - SQL Injection",
+  "software": [
+   {
+    "type": "plugin",
+    "name": "Other",
+    "slug": "not-installed-plugin",
+    "affected_versions": {
+     "* - 2.0": {
+      "from_version": "*",
+      "from_inclusive": true,
+      "to_version": "2.0",
+      "to_inclusive": true
+     }
+    },
+    "patched": false,
+    "patched_versions": []
+   }
+  ]
+ },
+ "0b5f1c7a-1111-4a8e-9c1d-000000000004": {
+  "id": "0b5f1c7a-1111-4a8e-9c1d-000000000004",
+  "informational": true,
+  "references": [],
+  "cwe": null,
+  "cvss": null,
+  "cve": null,
+  "cve_link": null,
+  "researchers": [],
+  "published": "2026-10-30 12:00:00",
+  "updated": "2026-11-01 08:00:00",
+  "copyrights": {
+   "message": "This record contains material that is subject to copyright",
+   "defiant": {
+    "notice": "Copyright 2012-2026 Defiant Inc.",
+    "license": "(licence text)",
+    "license_url": "https://www.wordfence.com/wti-community-edition-terms-and-conditions/"
+   },
+   "mitre": {
+    "notice": "Copyright 1999-2026 The MITRE Corporation",
+    "license": "(licence text)",
+    "license_url": "https://www.cve.org/Legal/TermsOfUse"
+   }
+  },
+  "title": "Hello Dolly - Informational",
+  "software": [
+   {
+    "type": "plugin",
+    "name": "Hello Dolly",
+    "slug": "hello-dolly",
+    "affected_versions": {
+     "*": {
+      "from_version": "*",
+      "from_inclusive": true,
+      "to_version": "*",
+      "to_inclusive": true
+     }
+    },
+    "patched": false,
+    "patched_versions": []
+   }
+  ]
+ },
+ "0b5f1c7a-1111-4a8e-9c1d-000000000005": {
+  "id": "0b5f1c7a-1111-4a8e-9c1d-000000000005",
+  "informational": false,
+  "references": [],
+  "cwe": null,
+  "cvss": null,
+  "cve": null,
+  "cve_link": null,
+  "researchers": [],
+  "published": "2026-10-30 12:00:00",
+  "updated": "2026-11-01 08:00:00",
+  "copyrights": {
+   "message": "This record contains material that is subject to copyright",
+   "defiant": {
+    "notice": "Copyright 2012-2026 Defiant Inc.",
+    "license": "(licence text)",
+    "license_url": "https://www.wordfence.com/wti-community-edition-terms-and-conditions/"
+   },
+   "mitre": {
+    "notice": "Copyright 1999-2026 The MITRE Corporation",
+    "license": "(licence text)",
+    "license_url": "https://www.cve.org/Legal/TermsOfUse"
+   }
+  },
+  "title": "Twenty Twenty-Five [1.0, 1.3) - Missing Authorization",
+  "software": [
+   {
+    "type": "theme",
+    "name": "Twenty Twenty-Five",
+    "slug": "twentytwentyfive",
+    "affected_versions": {
+     "[1.0, 1.3)": {
+      "from_version": "1.0",
+      "from_inclusive": true,
+      "to_version": "1.3",
+      "to_inclusive": false
+     }
+    },
+    "patched": true,
+    "patched_versions": [
+     "1.3"
+    ]
+   }
+  ]
+ },
+ "0b5f1c7a-1111-4a8e-9c1d-000000000006": {
+  "id": "0b5f1c7a-1111-4a8e-9c1d-000000000006",
+  "informational": false,
+  "references": [],
+  "cwe": null,
+  "cvss": null,
+  "cve": null,
+  "cve_link": null,
+  "researchers": [],
+  "published": "2026-10-30 12:00:00",
+  "updated": "2026-11-01 08:00:00",
+  "copyrights": {
+   "message": "This record contains material that is subject to copyright",
+   "defiant": {
+    "notice": "Copyright 2012-2026 Defiant Inc.",
+    "license": "(licence text)",
+    "license_url": "https://www.wordfence.com/wti-community-edition-terms-and-conditions/"
+   },
+   "mitre": {
+    "notice": "Copyright 1999-2026 The MITRE Corporation",
+    "license": "(licence text)",
+    "license_url": "https://www.cve.org/Legal/TermsOfUse"
+   }
+  },
+  "title": "Twenty Twenty-Five - Odd versions",
+  "software": [
+   {
+    "type": "theme",
+    "name": "Twenty Twenty-Five",
+    "slug": "twentytwentyfive",
+    "affected_versions": {
+     "weird": {
+      "from_version": "one",
+      "from_inclusive": true,
+      "to_version": "two",
+      "to_inclusive": true
+     }
+    },
+    "patched": false,
+    "patched_versions": []
+   }
+  ]
+ }
+}

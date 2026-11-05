@@ -27,6 +27,7 @@
       <a href="/incidents" {% if path.startswith("/incidents") or path.startswith("/cases") %}aria-current="page"{% endif %}>Incidents</a>
       <a href="/sites" {% if path.startswith("/sites") %}aria-current="page"{% endif %}>Sites</a>
       <a href="/advisories" {% if path.startswith("/advisories") %}aria-current="page"{% endif %}>Advisories</a>
+      <a href="/feeds" {% if path.startswith("/feeds") %}aria-current="page"{% endif %}>Feeds</a>
       {% if viewer.user.role.value == "admin" %}<a href="/users" {% if path.startswith("/users") %}aria-current="page"{% endif %}>Team</a>{% endif %}
     </nav>
     <form class="whoami" method="post" action="/logout">

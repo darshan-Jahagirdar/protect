@@ -114,3 +114,53 @@ def test_migrations_match_models(db_url: str) -> None:
 
     tables = set(inspect(make_engine(db_url)).get_table_names())
     assert set(Base.metadata.tables) <= tables
+
+
+def test_migrations_keep_linked_rows(db_url: str) -> None:
+    """SQLite batch migrations rebuild tables. With foreign keys enforced, dropping the old
+    table ran ON DELETE CASCADE / SET NULL and wiped linked rows (found 2026-11-04 on the
+    demo: advisory ranges, incident links, who acknowledged). Data must survive every step."""
+    cfg = Config(str(PLATFORM_DIR / "alembic.ini"))
+    cfg.set_main_option("sqlalchemy.url", db_url)
+    command.upgrade(cfg, "d601f53bf2c2")  # before the users and advisories rebuilds
+    t = "2026-10-23 10:00:00"
+    rows: list[tuple[str, tuple[object, ...]]] = [
+        (
+            "INSERT INTO users (id, email, display_name, role, created_at) VALUES (?, ?, ?, ?, ?)",
+            (1, "a@demo.test", "A", "admin", t),
+        ),
+        (
+            "INSERT INTO advisories (id, aliases, source, title, kev, exploited, review_status,"
+            " drill, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (1, '["CVE-2026-1"]', "replay", "T", 0, 0, "confirmed", 0, t),
+        ),
+        (
+            "INSERT INTO advisory_affects (id, advisory_id, component_key, ranges,"
+            " fixed_versions, distro_fixes) VALUES (?, ?, ?, ?, ?, ?)",
+            (1, 1, "php", "[]", "[]", "{}"),
+        ),
+        (
+            "INSERT INTO incidents (id, title, kind, priority, status, drill, created_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?)",
+            ("i1", "T", "php-core", "P1", "open", 0, t),
+        ),
+        ("INSERT INTO incident_advisories (incident_id, advisory_id) VALUES (?, ?)", ("i1", 1)),
+        (
+            "INSERT INTO events (incident_id, actor_user_id, type, at, data)"
+            " VALUES (?, ?, ?, ?, ?)",
+            ("i1", 1, "acknowledged", t, "{}"),
+        ),
+    ]
+    engine = make_engine(db_url)
+    with engine.begin() as c:
+        for sql, params in rows:
+            c.exec_driver_sql(sql, params)
+    engine.dispose()
+    command.upgrade(cfg, "head")
+    engine = make_engine(db_url)
+    with engine.connect() as c:
+        assert c.exec_driver_sql("SELECT count(*) FROM advisory_affects").scalar() == 1
+        assert c.exec_driver_sql("SELECT count(*) FROM incident_advisories").scalar() == 1
+        assert c.exec_driver_sql("SELECT actor_user_id FROM events").scalar() == 1
+        assert c.exec_driver_sql("PRAGMA foreign_keys").scalar() == 1  # back on for the app
+    engine.dispose()

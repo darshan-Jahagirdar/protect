@@ -7,7 +7,7 @@ It has two parts:
 - **[`plugin/protect-reporter/`](plugin/protect-reporter/)**: a small WordPress plugin (PHP 7.4+, WordPress 5.9+, no dependencies). Once an hour it sends a signed list of versions and file-check results. It only sends: it can't receive commands or change the site.
 - **[`platform/`](platform/)**: the Python service that receives those reports, matches them against security advisories, emails the team (counts only, never site names) and runs the dashboard.
 
-**Status:** the platform is live at https://13-200-85-221.sslip.io (AWS Lightsail, Mumbai; dashboard sign-in with password + authenticator app; alert email through Amazon SES). The first site to connect is transfunnel.com itself. Live advisory feeds (php.net, GitHub advisories, CISA KEV, Wordfence, NVD) are the next build step; until then advisories are loaded from reviewed files, such as PHP2Shell.
+**Status:** the platform is live at https://13-200-85-221.sslip.io (AWS Lightsail, Mumbai; dashboard sign-in with password + authenticator app; alert email through Amazon SES). The first site to connect is transfunnel.com itself. Live advisory feeds (php.net, GitHub php-src advisories, CISA KEV, NVD, and Wordfence once its API key is set) were built on 2026-11-04 and run on their own schedule in the local demo (not deployed to the server yet); the demo can still replay reviewed files such as PHP2Shell.
 
 ## For reviewers: the plugin
 

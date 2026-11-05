@@ -1,0 +1,1590 @@
+{
+ "resultsPerPage": 2,
+ "startIndex": 0,
+ "totalResults": 2,
+ "format": "NVD_CVE",
+ "version": "2.0",
+ "timestamp": "2026-11-04T13:35:37.834",
+ "vulnerabilities": [
+  {
+   "cve": {
+    "id": "CVE-2000-0967",
+    "sourceIdentifier": "cve@mitre.org",
+    "published": "2000-12-19T05:00:00.000",
+    "lastModified": "2026-09-23T09:10:01.707",
+    "vulnStatus": "Modified",
+    "cveTags": [],
+    "descriptions": [
+     {
+      "lang": "en",
+      "value": "PHP 3 and 4 do not properly cleanse user-injected format strings, which allows remote attackers to execute arbitrary commands by triggering error messages that are improperly written to the error logs."
+     },
+     {
+      "lang": "es",
+      "value": "PHP 3 y 4 no sanean adecuadamente las cadenas de formato inyectadas por el usuario, lo que permite a atacantes remotos ejecutar comandos arbitrarios al desencadenar mensajes de error que se escriben incorrectamente en los registros de errores."
+     }
+    ],
+    "affected": [
+     {
+      "source": "cve@mitre.org",
+      "affectedData": [
+       {
+        "vendor": "n/a",
+        "product": "n/a",
+        "versions": [
+         {
+          "version": "n/a",
+          "status": "affected"
+         }
+        ]
+       }
+      ]
+     }
+    ],
+    "metrics": {
+     "cvssMetricV2": [
+      {
+       "source": "nvd@nist.gov",
+       "type": "Primary",
+       "cvssData": {
+        "version": "2.0",
+        "vectorString": "AV:N/AC:L/Au:N/C:C/I:C/A:C",
+        "baseScore": 10.0,
+        "accessVector": "NETWORK",
+        "accessComplexity": "LOW",
+        "authentication": "NONE",
+        "confidentialityImpact": "COMPLETE",
+        "integrityImpact": "COMPLETE",
+        "availabilityImpact": "COMPLETE"
+       },
+       "baseSeverity": "HIGH",
+       "exploitabilityScore": 10.0,
+       "impactScore": 10.0,
+       "acInsufInfo": false,
+       "obtainAllPrivilege": true,
+       "obtainUserPrivilege": false,
+       "obtainOtherPrivilege": false,
+       "userInteractionRequired": false
+      }
+     ]
+    },
+    "weaknesses": [
+     {
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "description": [
+       {
+        "lang": "en",
+        "value": "NVD-CWE-Other"
+       }
+      ]
+     }
+    ],
+    "configurations": [
+     {
+      "nodes": [
+       {
+        "operator": "OR",
+        "negate": false,
+        "cpeMatch": [
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:php:php:3.0:*:*:*:*:*:*:*",
+          "matchCriteriaId": "245C601D-0FE7-47E3-8304-6FF45E9567D6"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:php:php:4.0:*:*:*:*:*:*:*",
+          "matchCriteriaId": "EDBEC461-D553-41B7-8D85-20B6A933C21C"
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "cve": {
+    "id": "CVE-2026-109618",
+    "sourceIdentifier": "security@php.net",
+    "published": "2026-10-21T14:17:09.357",
+    "lastModified": "2026-11-02T14:52:09.430",
+    "vulnStatus": "Analyzed",
+    "cveTags": [],
+    "descriptions": [
+     {
+      "lang": "en",
+      "value": "PHP uses longjmp() for out-of-memory (OOM) errors to exit the current context and abort handling of the request. Some contexts may not properly account for this scenario and leave request memory in an uninitialized state before performing an allocation. The subsequent request cleanup procedure may read or branch on this memory. Multiple OOM strategies can consistently trigger this condition and le"
+     },
+     {
+      "lang": "es",
+      "value": "PHP utiliza la funci\u00f3n \u201clongjmp()\u201d para los errores de falta de memoria (OOM), con el fin de salir del contexto actual y abortar la gesti\u00f3n de la solicitud. Es posible que algunos contextos no tengan debidamente en cuenta esta situaci\u00f3n y dejen la memoria de la solicitud en un estado no inicializado antes de realizar una asignaci\u00f3n. El procedimiento posterior de limpieza de la solicitud podr\u00eda lee"
+     }
+    ],
+    "affected": [
+     {
+      "source": "security@php.net",
+      "affectedData": [
+       {
+        "vendor": "PHP Group",
+        "product": "PHP",
+        "defaultStatus": "unaffected",
+        "packageName": "php-src",
+        "versions": [
+         {
+          "version": "8.2.*",
+          "lessThan": "8.2.35",
+          "versionType": "semver",
+          "status": "affected"
+         },
+         {
+          "version": "8.3.*",
+          "lessThan": "8.3.36",
+          "versionType": "semver",
+          "status": "affected"
+         },
+         {
+          "version": "8.4.*",
+          "lessThan": "8.4.27",
+          "versionType": "semver",
+          "status": "affected"
+         },
+         {
+          "version": "8.5.*",
+          "lessThan": "8.5.12",
+          "versionType": "semver",
+          "status": "affected"
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "source": "0b142b55-0307-4c5a-b3c9-f314f3fb7c5e",
+      "affectedData": [
+       {
+        "vendor": "Siemens",
+        "product": "AX4",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "CADRA",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "Capital",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "Designcenter",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "Designcenter X",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "DFMExpress",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "HyperLynx",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "Insights Hub",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "Opcenter Connect Electronics",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "Opcenter Connect MOM",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "Opcenter Execution Core",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "Opcenter Execution Foundation",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "Opcenter Execution Pharma",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "Opcenter Intelligence",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "Opcenter Intra Plant Logistics",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "Opcenter Quality",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "Opcenter RDnL",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "Opcenter X",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "PADS Pro Essentials",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "PADS Pro Student Edition",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "PADS Professional",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "PADS Professional - XCR",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "PADS Standard - XCR",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "PADS Standard & Standard Plus",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "Polarion",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "QuadView",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "RUGGEDCOM APE1808",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "affected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "Simcenter Flomaster",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "Simcenter Flux",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "Simcenter Simlab",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "Solid Edge",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "Solid Edge",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "Supply Chain Suite",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "Teamcenter",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "Teamcenter Product Cost Management",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "Teamcenter Visualization",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "Tecnomatix Plant Simulation",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "TestWay",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "Valor NPI",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "Xcargo",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "Xpedition Designer",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "Xpedition Enterprise",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "Xpedition Enterprise XCR",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "Xpedition IC Packaging",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "Xpedition Layout Browser",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "unaffected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "AMIS TS",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "affected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "blueplanet 360 NX3 M6 WM OD IISX",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "affected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "blueplanet 360 NX3 M6 WM OD IISX - S",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "affected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "Energy Engage V2.0SP9",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "affected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "Energy Engage V3.1SP1",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "affected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "Spectrum Power 4",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "affected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "Spectrum Power 4",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "affected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "Spectrum Power 4",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "affected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "Spectrum Power 7",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "affected"
+         }
+        ]
+       },
+       {
+        "vendor": "Siemens",
+        "product": "Spectrum Power TG",
+        "defaultStatus": "unknown",
+        "versions": [
+         {
+          "version": "0",
+          "lessThan": "*",
+          "versionType": "custom",
+          "status": "affected"
+         }
+        ]
+       }
+      ]
+     }
+    ],
+    "metrics": {
+     "cvssMetricV40": [
+      {
+       "source": "security@php.net",
+       "type": "Secondary",
+       "cvssData": {
+        "version": "4.0",
+        "vectorString": "CVSS:4.0/AV:N/AC:H/AT:P/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N/E:X/CR:X/IR:X/AR:X/MAV:X/MAC:X/MAT:X/MPR:X/MUI:X/MVC:X/MVI:X/MVA:X/MSC:X/MSI:X/MSA:X/S:X/AU:X/R:X/V:X/RE:X/U:X",
+        "baseScore": 9.2,
+        "baseSeverity": "CRITICAL",
+        "attackVector": "NETWORK",
+        "attackComplexity": "HIGH",
+        "attackRequirements": "PRESENT",
+        "privilegesRequired": "NONE",
+        "userInteraction": "NONE",
+        "vulnConfidentialityImpact": "HIGH",
+        "vulnIntegrityImpact": "HIGH",
+        "vulnAvailabilityImpact": "HIGH",
+        "subConfidentialityImpact": "NONE",
+        "subIntegrityImpact": "NONE",
+        "subAvailabilityImpact": "NONE",
+        "exploitMaturity": "NOT_DEFINED",
+        "confidentialityRequirement": "NOT_DEFINED",
+        "integrityRequirement": "NOT_DEFINED",
+        "availabilityRequirement": "NOT_DEFINED",
+        "modifiedAttackVector": "NOT_DEFINED",
+        "modifiedAttackComplexity": "NOT_DEFINED",
+        "modifiedAttackRequirements": "NOT_DEFINED",
+        "modifiedPrivilegesRequired": "NOT_DEFINED",
+        "modifiedUserInteraction": "NOT_DEFINED",
+        "modifiedVulnConfidentialityImpact": "NOT_DEFINED",
+        "modifiedVulnIntegrityImpact": "NOT_DEFINED",
+        "modifiedVulnAvailabilityImpact": "NOT_DEFINED",
+        "modifiedSubConfidentialityImpact": "NOT_DEFINED",
+        "modifiedSubIntegrityImpact": "NOT_DEFINED",
+        "modifiedSubAvailabilityImpact": "NOT_DEFINED",
+        "Safety": "NOT_DEFINED",
+        "Automatable": "NOT_DEFINED",
+        "Recovery": "NOT_DEFINED",
+        "valueDensity": "NOT_DEFINED",
+        "vulnerabilityResponseEffort": "NOT_DEFINED",
+        "providerUrgency": "NOT_DEFINED"
+       }
+      }
+     ],
+     "cvssMetricV31": [
+      {
+       "source": "nvd@nist.gov",
+       "type": "Primary",
+       "cvssData": {
+        "version": "3.1",
+        "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+        "baseScore": 9.8,
+        "baseSeverity": "CRITICAL",
+        "attackVector": "NETWORK",
+        "attackComplexity": "LOW",
+        "privilegesRequired": "NONE",
+        "userInteraction": "NONE",
+        "scope": "UNCHANGED",
+        "confidentialityImpact": "HIGH",
+        "integrityImpact": "HIGH",
+        "availabilityImpact": "HIGH"
+       },
+       "exploitabilityScore": 3.9,
+       "impactScore": 5.9
+      }
+     ],
+     "ssvcV203": [
+      {
+       "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+       "ssvcData": {
+        "timestamp": "2026-10-21T00:00:00+00:00",
+        "id": "CVE-2026-109618",
+        "options": [
+         {
+          "exploitation": "active"
+         },
+         {
+          "automatable": "no"
+         },
+         {
+          "technicalImpact": "total"
+         }
+        ],
+        "role": "CISA Coordinator",
+        "version": "2.0.3"
+       }
+      }
+     ]
+    },
+    "cisaExploitAdd": "2026-10-26",
+    "cisaActionDue": "2026-10-29",
+    "cisaRequiredAction": "Apply mitigations in accordance with vendor instructions, ensuring compliance with CISA\u2019s BOD 26-04 Prioritizing Security Updates Based on Risk (see URL in Notes) guidance and CISA\u2019s \u201cForensics Triage Requirements\u201d (see URL in Notes). Follow applicable BOD 26-04 guidance for cloud services or discontinue use of the product if mitigations are unavailable. Stakeholders are responsible for evaluating each asset's internet exposure and ensuring adherence to BOD 26-04 patching guidelines.",
+    "cisaVulnerabilityName": "PHP Memory Corruption Vulnerability",
+    "weaknesses": [
+     {
+      "source": "security@php.net",
+      "type": "Secondary",
+      "description": [
+       {
+        "lang": "en",
+        "value": "CWE-416"
+       },
+       {
+        "lang": "en",
+        "value": "CWE-755"
+       },
+       {
+        "lang": "en",
+        "value": "CWE-824"
+       },
+       {
+        "lang": "en",
+        "value": "CWE-1325"
+       }
+      ]
+     }
+    ],
+    "configurations": [
+     {
+      "nodes": [
+       {
+        "operator": "OR",
+        "negate": false,
+        "cpeMatch": [
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:php:php:*:*:*:*:*:*:*:*",
+          "versionStartIncluding": "7.3.0",
+          "versionEndExcluding": "8.2.35",
+          "matchCriteriaId": "6F6AF526-A467-44E0-9865-81DC17D9D921"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:php:php:*:*:*:*:*:*:*:*",
+          "versionStartIncluding": "8.3.0",
+          "versionEndExcluding": "8.3.36",
+          "matchCriteriaId": "40BD58D9-94BD-41B6-9DDA-30CA729409FB"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:php:php:*:*:*:*:*:*:*:*",
+          "versionStartIncluding": "8.4.0",
+          "versionEndExcluding": "8.4.27",
+          "matchCriteriaId": "D057202A-94FF-4118-A41F-BA8ABB76346E"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:php:php:*:*:*:*:*:*:*:*",
+          "versionStartIncluding": "8.5.0",
+          "versionEndExcluding": "8.5.12",
+          "matchCriteriaId": "CAF7FA75-7F87-405F-A222-C5C17D42C31F"
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "operator": "AND",
+      "nodes": [
+       {
+        "operator": "OR",
+        "negate": false,
+        "cpeMatch": [
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:siemens:ruggedcom_ape1808_firmware:-:*:*:*:*:*:*:*",
+          "matchCriteriaId": "37FDCA69-9049-40B4-88AF-F476901022B6"
+         }
+        ]
+       },
+       {
+        "operator": "OR",
+        "negate": false,
+        "cpeMatch": [
+         {
+          "vulnerable": false,
+          "criteria": "cpe:2.3:h:siemens:ruggedcom_ape1808:-:*:*:*:*:*:*:*",
+          "matchCriteriaId": "B89A6863-B602-4404-8D26-337FECABFFF0"
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "nodes": [
+       {
+        "operator": "OR",
+        "negate": false,
+        "cpeMatch": [
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:*:*:*:*:*:*:*:*",
+          "versionStartIncluding": "10.2.0",
+          "versionEndExcluding": "10.2.7",
+          "matchCriteriaId": "243077CD-5021-4DF3-8AC7-5B14F7FD9710"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:10.2.7:-:*:*:*:*:*:*",
+          "matchCriteriaId": "A8C42D98-CF8F-456B-9D57-80BBDC2C8E74"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:10.2.7:h1:*:*:*:*:*:*",
+          "matchCriteriaId": "B3AAD4BA-22DD-43D3-91F1-8A6F5FBBF029"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:10.2.7:h10:*:*:*:*:*:*",
+          "matchCriteriaId": "EFB63AFC-C3EC-4D1A-BC4A-810662AD16BD"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:10.2.7:h11:*:*:*:*:*:*",
+          "matchCriteriaId": "E67DEF1D-8674-41E8-AA07-0499DCCFD67A"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:10.2.7:h12:*:*:*:*:*:*",
+          "matchCriteriaId": "AA4994CB-6591-4B44-A5D7-3CDF540B97DE"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:10.2.7:h13:*:*:*:*:*:*",
+          "matchCriteriaId": "71EB32DA-D82F-49DD-B06F-7F10F08F740E"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:10.2.7:h14:*:*:*:*:*:*",
+          "matchCriteriaId": "BF05E61D-0EC2-4755-8FCF-12E102A4D8FC"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:10.2.7:h15:*:*:*:*:*:*",
+          "matchCriteriaId": "22ED8EDB-5549-4D29-90D2-FFE33D030912"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:10.2.7:h16:*:*:*:*:*:*",
+          "matchCriteriaId": "A6AB7874-FE24-42AC-8E3A-822A70722126"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:10.2.7:h17:*:*:*:*:*:*",
+          "matchCriteriaId": "61B69220-4155-4462-A133-CE7A54747B83"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:10.2.7:h18:*:*:*:*:*:*",
+          "matchCriteriaId": "34B083B9-CC1B-43CD-9A16-C018F7FA2DDB"
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "nodes": [
+       {
+        "operator": "OR",
+        "negate": false,
+        "cpeMatch": [
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:*:*:*:*:*:*:*:*",
+          "versionStartIncluding": "11.1.0",
+          "versionEndExcluding": "11.1.4",
+          "matchCriteriaId": "459485B4-47FF-4A5F-9249-AE0445A0096A"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:11.1.4:-:*:*:*:*:*:*",
+          "matchCriteriaId": "DF83EAA1-49E1-4AD0-A049-F1B3065950BC"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:11.1.4:h1:*:*:*:*:*:*",
+          "matchCriteriaId": "BE3F7369-9F35-409A-9F47-45A959592DFA"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:11.1.4:h10:*:*:*:*:*:*",
+          "matchCriteriaId": "6650937C-D778-4B5D-AA28-E7DA96DDAB7E"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:11.1.4:h11:*:*:*:*:*:*",
+          "matchCriteriaId": "DB835E23-6984-413D-A870-8734E626D219"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:11.1.4:h12:*:*:*:*:*:*",
+          "matchCriteriaId": "FD247097-EEC7-48E7-9C14-3314900BD5F0"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:11.1.4:h13:*:*:*:*:*:*",
+          "matchCriteriaId": "FD701663-4C57-4115-BD59-9DFFB504E2AF"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:11.1.4:h15:*:*:*:*:*:*",
+          "matchCriteriaId": "82816C09-6A9D-4AB2-AA55-62CC714CCA82"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:11.1.4:h16:*:*:*:*:*:*",
+          "matchCriteriaId": "9AA9F77D-BC9C-4A2C-8988-6DEE65CD9C8E"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:11.1.4:h17:*:*:*:*:*:*",
+          "matchCriteriaId": "A5A3CEBF-9F8A-47F9-A302-7C395F2A8146"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:11.1.4:h18:*:*:*:*:*:*",
+          "matchCriteriaId": "A79B51D2-74E8-4BA3-AE33-829A9C1776E9"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:11.1.4:h2:*:*:*:*:*:*",
+          "matchCriteriaId": "83A04AA3-4B6C-4B75-9797-74FA230FD299"
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "nodes": [
+       {
+        "operator": "OR",
+        "negate": false,
+        "cpeMatch": [
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:*:*:*:*:*:*:*:*",
+          "versionStartIncluding": "11.2.0",
+          "versionEndExcluding": "11.2.4",
+          "matchCriteriaId": "7E4D3A51-0A40-4B19-AAFC-A2484B1CF5D7"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:11.2.4:-:*:*:*:*:*:*",
+          "matchCriteriaId": "C01AD190-F3C2-4349-A063-8C5C78B725B9"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:11.2.4:h1:*:*:*:*:*:*",
+          "matchCriteriaId": "30F4CD1C-6862-4279-8D2D-40B4D164222F"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:11.2.4:h10:*:*:*:*:*:*",
+          "matchCriteriaId": "8137F3AF-BA32-41BC-AD2E-A668FFA33892"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:11.2.4:h11:*:*:*:*:*:*",
+          "matchCriteriaId": "8C977AF0-D2B0-401A-A7C5-A1C71AC3C072"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:11.2.4:h12:*:*:*:*:*:*",
+          "matchCriteriaId": "B9C0A53F-2AFE-4B0D-AEC1-464E6001E02F"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:11.2.4:h14:*:*:*:*:*:*",
+          "matchCriteriaId": "D720448D-F40B-4C92-9101-A48AC36C9CBF"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:11.2.4:h15:*:*:*:*:*:*",
+          "matchCriteriaId": "5F12F7AC-D5B3-499E-87DA-27427D8BFFC5"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:11.2.4:h17:*:*:*:*:*:*",
+          "matchCriteriaId": "37F41E72-9690-4BB2-BD60-0B06A7DE2329"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:11.2.4:h18:*:*:*:*:*:*",
+          "matchCriteriaId": "34E9893A-7ADF-4556-AA7C-D69162307950"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:11.2.4:h2:*:*:*:*:*:*",
+          "matchCriteriaId": "A52B7A7A-483A-4075-B1E9-5C14B66F7FC3"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:11.2.4:h20:*:*:*:*:*:*",
+          "matchCriteriaId": "7338C509-BCCE-4D2A-8E9A-D54180460E89"
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "nodes": [
+       {
+        "operator": "OR",
+        "negate": false,
+        "cpeMatch": [
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:*:*:*:*:*:*:*:*",
+          "versionStartIncluding": "12.1.0",
+          "versionEndExcluding": "12.1.4",
+          "matchCriteriaId": "181F9096-34AB-483A-B33F-F4A7F250052F"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:12.1.4:-:*:*:*:*:*:*",
+          "matchCriteriaId": "8C1ADE94-3F05-48EE-94E0-FD6EB682705C"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:12.1.4:h10:*:*:*:*:*:*",
+          "matchCriteriaId": "7346F91C-F2DD-4974-AB7C-CC8CAA4FC622"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:12.1.4:h11:*:*:*:*:*:*",
+          "matchCriteriaId": "7DB93F18-BA89-40B5-BE21-3A92B2605EE6"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:12.1.4:h12:*:*:*:*:*:*",
+          "matchCriteriaId": "B228660E-DB3D-4A3D-BCF2-595AEC41A806"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:12.1.4:h2:*:*:*:*:*:*",
+          "matchCriteriaId": "F727C18E-1C8D-448A-954C-073294FBC65C"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:12.1.4:h3:*:*:*:*:*:*",
+          "matchCriteriaId": "7E492BE6-EB2E-4616-85EA-3B389741301B"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:12.1.4:h5:*:*:*:*:*:*",
+          "matchCriteriaId": "E5F85240-989D-4E2D-B2D0-F0F35E0590A4"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:12.1.4:h6:*:*:*:*:*:*",
+          "matchCriteriaId": "3D64D659-40F8-4A02-8385-954BE50C22CE"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:12.1.4:h7:*:*:*:*:*:*",
+          "matchCriteriaId": "2320DB49-D6E3-44D1-AE4C-F1312CA542CF"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:12.1.4:h8:*:*:*:*:*:*",
+          "matchCriteriaId": "6DC0027E-AF6F-4B31-AC63-E6521DD0D53E"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:12.1.4:h9:*:*:*:*:*:*",
+          "matchCriteriaId": "45727CFE-4BB8-4009-B96C-272E7E64A152"
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "nodes": [
+       {
+        "operator": "OR",
+        "negate": false,
+        "cpeMatch": [
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:*:*:*:*:*:*:*:*",
+          "versionStartIncluding": "12.2.0",
+          "versionEndExcluding": "12.2.4",
+          "matchCriteriaId": "773DEDA9-ED1B-404B-97ED-BB95D7C766BD"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:12.2.4:-:*:*:*:*:*:*",
+          "matchCriteriaId": "DAF4FC60-530D-4CBF-A16B-BFB2E1B698AF"
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "operator": "AND",
+      "nodes": [
+       {
+        "operator": "OR",
+        "negate": false,
+        "cpeMatch": [
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:-:*:*:*:*:*:*:*",
+          "matchCriteriaId": "9596C09F-1353-45AE-BD8F-B7EE67A142E4"
+         }
+        ]
+       },
+       {
+        "operator": "OR",
+        "negate": false,
+        "cpeMatch": [
+         {
+          "vulnerable": false,
+          "criteria": "cpe:2.3:h:paloaltonetworks:panorama_m-200:-:*:*:*:*:*:*:*",
+          "matchCriteriaId": "7C62FBF7-0D37-4CA1-872B-7B6BA3702890"
+         },
+         {
+          "vulnerable": false,
+          "criteria": "cpe:2.3:h:paloaltonetworks:panorama_m-300:-:*:*:*:*:*:*:*",
+          "matchCriteriaId": "8DE8F01C-739C-4A03-9ECB-181CDD5A9609"
+         },
+         {
+          "vulnerable": false,
+          "criteria": "cpe:2.3:h:paloaltonetworks:panorama_m-500:-:*:*:*:*:*:*:*",
+          "matchCriteriaId": "8AC66517-BD14-47D9-8CCF-09F325226C23"
+         },
+         {
+          "vulnerable": false,
+          "criteria": "cpe:2.3:h:paloaltonetworks:panorama_m-600:-:*:*:*:*:*:*:*",
+          "matchCriteriaId": "82EAD013-E74C-43A6-BE16-B4F6950A0F88"
+         },
+         {
+          "vulnerable": false,
+          "criteria": "cpe:2.3:h:paloaltonetworks:panorama_m-700:-:*:*:*:*:*:*:*",
+          "matchCriteriaId": "163E8C8E-71A5-48A1-967F-3FA212BF8CF6"
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "nodes": [
+       {
+        "operator": "OR",
+        "negate": false,
+        "cpeMatch": [
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:paloaltonetworks:panorama_virtual_appliance:-:*:*:*:*:*:*:*",
+          "matchCriteriaId": "224E91A3-34BA-4FA4-A503-D23E084BC428"
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "operator": "AND",
+      "nodes": [
+       {
+        "operator": "OR",
+        "negate": false,
+        "cpeMatch": [
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:paloaltonetworks:pan-os:-:*:*:*:*:*:*:*",
+          "matchCriteriaId": "9596C09F-1353-45AE-BD8F-B7EE67A142E4"
+         }
+        ]
+       },
+       {
+        "operator": "OR",
+        "negate": false,
+        "cpeMatch": [
+         {
+          "vulnerable": false,
+          "criteria": "cpe:2.3:h:paloaltonetworks:wf-500:-:*:*:*:*:*:*:*",
+          "matchCriteriaId": "3F9D532F-67BA-438B-8BD5-65B2EADF35D8"
+         },
+         {
+          "vulnerable": false,
+          "criteria": "cpe:2.3:h:paloaltonetworks:wf-500-b:-:*:*:*:*:*:*:*",
+          "matchCriteriaId": "FFE4B73A-0C35-4254-B028-A7E587780888"
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "operator": "AND",
+      "nodes": [
+       {
+        "operator": "OR",
+        "negate": false,
+        "cpeMatch": [
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:siemens:blueplanet_360_nx3_m6_wm_od_iisx_firmware:-:*:*:*:*:*:*:*",
+          "matchCriteriaId": "F595238B-DADB-47C6-A080-0ED08C2AD8AB"
+         }
+        ]
+       },
+       {
+        "operator": "OR",
+        "negate": false,
+        "cpeMatch": [
+         {
+          "vulnerable": false,
+          "criteria": "cpe:2.3:h:siemens:blueplanet_360_nx3_m6_wm_od_iisx:-:*:*:*:*:*:*:*",
+          "matchCriteriaId": "3B340780-E6A9-4FB0-A131-B177CC1F0C1E"
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "operator": "AND",
+      "nodes": [
+       {
+        "operator": "OR",
+        "negate": false,
+        "cpeMatch": [
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:siemens:blueplanet_360_nx3_m6_wm_od_iisx-s_firmware:-:*:*:*:*:*:*:*",
+          "matchCriteriaId": "F087AAC6-F14D-4C22-8437-2372677D8BDE"
+         }
+        ]
+       },
+       {
+        "operator": "OR",
+        "negate": false,
+        "cpeMatch": [
+         {
+          "vulnerable": false,
+          "criteria": "cpe:2.3:h:siemens:blueplanet_360_nx3_m6_wm_od_iisx-s:-:*:*:*:*:*:*:*",
+          "matchCriteriaId": "B7A6B581-C514-4E07-ABCD-FDE1399C11B7"
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "nodes": [
+       {
+        "operator": "OR",
+        "negate": false,
+        "cpeMatch": [
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:siemens:energy_engage:2.0:service_pack9:*:*:*:*:*:*",
+          "matchCriteriaId": "D09A129E-0EFD-46D1-9991-66803604FC5E"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:siemens:energy_engage:3.1:service_pack1:*:*:*:*:*:*",
+          "matchCriteriaId": "3C71DADE-DA90-43B8-ADA7-1A396A7034E7"
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "nodes": [
+       {
+        "operator": "OR",
+        "negate": false,
+        "cpeMatch": [
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:siemens:spectrum_power_4:-:*:*:*:*:*:*:*",
+          "matchCriteriaId": "3D40B786-1DB0-444A-86F5-C4C8785E1DE7"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:siemens:spectrum_power_7:-:*:*:*:*:*:*:*",
+          "matchCriteriaId": "24683BF6-BEE0-48E6-92C6-89B20569FE92"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:siemens:spectrum_power_tg:-:*:*:*:*:*:*:*",
+          "matchCriteriaId": "C257A2CE-2F13-491D-A993-0C4F19F8720E"
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "nodes": [
+       {
+        "operator": "OR",
+        "negate": false,
+        "cpeMatch": [
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:siemens:amis_ts:-:*:*:*:*:*:*:*",
+          "matchCriteriaId": "99E7DE5D-421E-4537-834B-E76E370DA202"
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   }
+  }
+ ]
+}

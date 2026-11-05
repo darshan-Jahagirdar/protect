@@ -16,9 +16,9 @@ from app.alerts import messages
 from app.alerts.mailer import Mailer, Message
 from app.alerts.messages import IncidentSummary
 from app.db import utcnow
-from app.enums import AlertChannel, Exposure, IncidentStatus, Priority
+from app.enums import AlertChannel, Exposure, IncidentStatus, Priority, ReviewStatus
 from app.models import Advisory, Alert, Event, Incident, IncidentAdvisory
-from app.services.incidents import flag_unconfirmed_fixes
+from app.services.incidents import flag_unconfirmed_fixes, possible_sites
 from app.settings import Settings
 
 log = logging.getLogger("protect.alerts")
@@ -190,6 +190,40 @@ def send_digest(
     return len(summaries)
 
 
+def send_review_alerts(
+    session: Session, mailer: Mailer, settings: Settings, now: datetime | None = None
+) -> int:
+    """Advisories waiting for review that may affect a site: "possible match, review needed".
+
+    Once per advisory. Ones that match no site wait quietly in the review queue."""
+    now = now or utcnow()
+    to = settings.alert_recipient_list
+    if not to:
+        return 0
+    sent = 0
+    for adv in session.scalars(
+        select(Advisory).where(
+            Advisory.review_status == ReviewStatus.NEEDS_REVIEW,
+            Advisory.review_alerted_at.is_(None),
+        )
+    ):
+        sites = possible_sites(session, adv)
+        if sites == 0:
+            continue
+        subject, body = messages.review_needed(
+            adv.id, adv.title, tuple(adv.aliases), sites, settings.base_url
+        )
+        try:
+            mailer.send(Message(tuple(to), subject, body))
+        except Exception:  # retried on the next run
+            log.exception("sending the review alert for advisory %s failed", adv.id)
+            continue
+        adv.review_alerted_at = now
+        sent += 1
+    session.flush()
+    return sent
+
+
 def acknowledge(
     session: Session, incident: Incident, user_id: int | None, now: datetime | None = None
 ) -> bool:
@@ -223,6 +257,7 @@ def run_alert_cycle(
     with session_factory() as session:
         send_due_alerts(session, mailer, settings)
         escalate_unacknowledged(session, mailer, settings)
+        send_review_alerts(session, mailer, settings)
         flag_unconfirmed_fixes(session)
         session.commit()
 

@@ -17,6 +17,7 @@ from app.engine.catalogue import ComponentKind, kind_of
 from app.engine.matcher import AffectRule, Bucket, ComponentFacts, MatchResult, OsFacts
 from app.engine.matcher import match_component as engine_match
 from app.engine.scoring import ScoreInput, score
+from app.engine.versions import parse_loose
 from app.enums import Exposure, IncidentStatus, Priority, ReviewStatus, SiteStatus
 from app.models import (
     Advisory,
@@ -126,6 +127,73 @@ def _open_incident_for(session: Session, advisory: Advisory) -> Incident | None:
     )
 
 
+def incident_advisories(session: Session, incident: Incident) -> list[Advisory]:
+    return list(
+        session.scalars(
+            select(Advisory)
+            .join(IncidentAdvisory, IncidentAdvisory.advisory_id == Advisory.id)
+            .where(IncidentAdvisory.incident_id == incident.id)
+            .order_by(Advisory.id)
+        )
+    )
+
+
+def _group_incident_for(session: Session, advisory: Advisory) -> Incident | None:
+    """An open incident for another advisory with the same group key (same component, same
+    affected versions, same fix): one release fixing several flaws is one event."""
+    if not advisory.group_key or advisory.drill:
+        return None
+    return session.scalar(
+        select(Incident)
+        .join(IncidentAdvisory, IncidentAdvisory.incident_id == Incident.id)
+        .join(Advisory, Advisory.id == IncidentAdvisory.advisory_id)
+        .where(
+            Advisory.group_key == advisory.group_key,
+            Advisory.id != advisory.id,
+            Incident.status != IncidentStatus.CLOSED,
+        )
+        .order_by(Incident.created_at)
+    )
+
+
+_LABELS = {
+    ComponentKind.PHP: "PHP",
+    ComponentKind.WORDPRESS: "WordPress",
+    ComponentKind.WP_PLUGIN: "Plugin",
+    ComponentKind.WP_THEME: "Theme",
+}
+
+
+def group_title(advisories: list[Advisory]) -> str:
+    """Title for an incident that carries several advisories of one release."""
+    if len(advisories) == 1:
+        return advisories[0].title
+    key = advisories[0].affects[0].component_key if advisories[0].affects else ""
+    kind = kind_of(key) if key else None
+    label = _LABELS.get(kind, key) if kind else "Software"  # type: ignore[arg-type]
+    if kind in (ComponentKind.WP_PLUGIN, ComponentKind.WP_THEME):
+        label = f"{label} {key.split(':', 1)[1]}"
+    fixes = sorted(
+        {v for a in advisories for af in a.affects for v in af.fixed_versions},
+        key=lambda v: parse_loose(v) or parse_loose("0"),  # type: ignore[arg-type,return-value]
+    )
+    shown = ", ".join(fixes[:5]) + (", …" if len(fixes) > 5 else "")
+    return f"{label}: {len(advisories)} security flaws" + (f", fixed in {shown}" if fixes else "")
+
+
+def _join_incident(session: Session, incident: Incident, advisory: Advisory) -> None:
+    session.add(IncidentAdvisory(incident_id=incident.id, advisory_id=advisory.id))
+    session.flush()
+    incident.title = group_title(incident_advisories(session, incident))[:300]
+    _event(
+        session,
+        "advisory_added",
+        incident,
+        note=f"{advisory.title} (same affected versions and fix)",
+        aliases=advisory.aliases,
+    )
+
+
 def _create_incident(session: Session, advisory: Advisory) -> Incident:
     incident = Incident(
         title=advisory.title,
@@ -164,8 +232,41 @@ def _find_case(session: Session, incident: Incident, site_id: int, key: str) -> 
     )
 
 
+def _worst_hit(
+    session: Session, incident: Incident, advisory: Advisory, hit: Hit, shielded: bool
+) -> tuple[Advisory, Hit]:
+    """The incident's advisories can disagree about one site component (they arrive one at a
+    time). The case follows the worst of them: any affected beats safe, vulnerable beats
+    needs_check, and then the highest score. So one advisory saying "fixed" never verifies a
+    case another advisory in the same incident still flags."""
+    candidates = [(advisory, hit)]
+    os = _site_os(session, hit.site)
+    for other in incident_advisories(session, incident):
+        if other.id == advisory.id or other.review_status is not ReviewStatus.CONFIRMED:
+            continue
+        for affect in other.affects:
+            if affect.component_key != hit.component.component_key:
+                continue
+            rule = AffectRule(affect.component_key, affect.ranges, affect.distro_fixes)
+            facts = ComponentFacts(
+                hit.component.component_key, hit.component.version_raw, hit.component.active
+            )
+            candidates.append(
+                (other, Hit(hit.site, hit.component, affect, engine_match(facts, rule, os)))
+            )
+
+    def badness(c: tuple[Advisory, Hit]) -> tuple[int, int]:
+        adv, h = c
+        rank = {Bucket.SAFE: 0, Bucket.NEEDS_CHECK: 1, Bucket.VULNERABLE: 2}[h.result.bucket]
+        points = _score_for(adv, h, shielded)[0] if rank else 0
+        return rank, points
+
+    return max(candidates, key=badness)
+
+
 def _apply_hit(session: Session, incident: Incident, advisory: Advisory, hit: Hit) -> None:
     case = _find_case(session, incident, hit.site.id, hit.component.component_key)
+    advisory, hit = _worst_hit(session, incident, advisory, hit, case.shielded if case else False)
     r = hit.result
 
     if r.bucket is Bucket.SAFE:
@@ -305,7 +406,11 @@ def apply_advisory(
     if incident is None:
         if not any(h.result.bucket is not Bucket.SAFE for h in hits):
             return None
-        incident = _create_incident(session, advisory)
+        incident = _group_incident_for(session, advisory)
+        if incident is not None:
+            _join_incident(session, incident, advisory)
+        else:
+            incident = _create_incident(session, advisory)
 
     for hit in hits:
         _apply_hit(session, incident, advisory, hit)
@@ -314,6 +419,17 @@ def apply_advisory(
     refresh_incident_status(session, incident)
     session.flush()
     return incident
+
+
+def possible_sites(session: Session, advisory: Advisory) -> int:
+    """How many active sites this advisory would affect if its ranges are right. Used for
+    advisories still waiting for review: nothing is opened, it only says "possible match"."""
+    sites = session.scalars(select(Site).where(Site.status == SiteStatus.ACTIVE))
+    return sum(
+        1
+        for site in sites
+        if any(h.result.bucket is not Bucket.SAFE for h in match_site(session, site, advisory))
+    )
 
 
 def rematch_site(session: Session, site: Site) -> list[Incident]:

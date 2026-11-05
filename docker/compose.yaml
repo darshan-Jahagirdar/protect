@@ -87,6 +87,8 @@ services:
       PROTECT_GEMINI_API_KEY: ${PROTECT_GEMINI_API_KEY:-}
       PROTECT_OPENAI_API_KEY: ${PROTECT_OPENAI_API_KEY:-}
       PROTECT_OPENAI_MODEL: ${PROTECT_OPENAI_MODEL:-}
+      # Live advisory feeds. The Wordfence key comes from docker/.env (gitignored).
+      PROTECT_WORDFENCE_API_KEY: ${PROTECT_WORDFENCE_API_KEY:-}
     ports:
       - "127.0.0.1:8000:8000"
     volumes:

@@ -199,6 +199,15 @@ class Advisory(Base):
     )
     drill: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = _created()
+    # Live feeds (DESIGN.md §4.3). Advisories with the same group key (same component, same
+    # affected versions, same fix) are one real-world event, so they share one incident.
+    group_key: Mapped[str | None] = mapped_column(String(64), index=True)
+    review_reason: Mapped[str | None] = mapped_column(String(1000))  # why a feed wants a person
+    reviewed_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    reviewed_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    review_note: Mapped[str | None] = mapped_column(String(1000))
+    review_alerted_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    attribution: Mapped[str | None] = mapped_column(String(1000))  # copyright notices to show
 
     affects: Mapped[list["AdvisoryAffect"]] = relationship(
         back_populates="advisory", cascade="all, delete-orphan"
@@ -387,7 +396,38 @@ class FeedRun(Base):
         _enum(FeedRunStatus), default=FeedRunStatus.RUNNING
     )
     items_new: Mapped[int] = mapped_column(Integer, default=0)
+    items_updated: Mapped[int] = mapped_column(Integer, default=0)
+    items_rejected: Mapped[int] = mapped_column(Integer, default=0)  # failed our format checks
     error: Mapped[str | None] = mapped_column(String(1000))
+
+
+class FeedState(Base):
+    """What each feed remembers between runs: cursors, small reference data, alert state."""
+
+    __tablename__ = "feed_state"
+
+    source: Mapped[str] = mapped_column(String(50), primary_key=True)
+    data: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    content_hash: Mapped[str | None] = mapped_column(String(64))  # last download, to skip work
+    failure_alerted_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
+class FeedItem(Base):
+    """One item a feed has seen, and what it looked like, so unchanged items are skipped."""
+
+    __tablename__ = "feed_items"
+    __table_args__ = (UniqueConstraint("source", "item_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    source: Mapped[str] = mapped_column(String(50))
+    item_id: Mapped[str] = mapped_column(String(200))
+    content_hash: Mapped[str] = mapped_column(String(64))
+    advisory_id: Mapped[int | None] = mapped_column(
+        ForeignKey("advisories.id", ondelete="SET NULL")
+    )
+    first_seen: Mapped[datetime] = _created()
+    last_seen: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
 
 class User(Base):

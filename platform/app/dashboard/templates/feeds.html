@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Feeds · Protect{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Feeds</h1>
+  <a class="button-secondary" href="/advisories#review">Review queue</a>
+</div>
+<p class="muted">Where Protect hears about new security flaws. Each feed only downloads public data on a schedule. If one fails three times in a row, the team gets one email.</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Feed</th><th>Status</th><th>Every</th><th>Last run</th><th>Last worked</th><th>Last run found</th></tr></thead>
+  <tbody>
+  {% for h in health %}
+    <tr>
+      <td>{{ h.spec.label }}</td>
+      <td><span class="dot dot-{{ {'ok': 'ok', 'failing': 'warn', 'late': 'warn', 'broken': 'bad'}.get(h.state, '') }}"></span> {{ h.label }}
+        {% if h.last_run and h.last_run.error %}<div class="small muted">{{ h.last_run.error }}</div>{% endif %}</td>
+      <td class="small">{{ h.spec.interval_minutes if h.spec.interval_minutes < 60 else h.spec.interval_minutes // 60 }} {{ "min" if h.spec.interval_minutes < 60 else "h" }}</td>
+      <td class="small">{{ h.last_run.started_at | ago if h.last_run else "never" }}</td>
+      <td class="small">{{ h.last_ok_at | ago if h.last_ok_at else "never" }}</td>
+      <td class="small">{% if h.last_run %}{{ h.last_run.items_new }} new, {{ h.last_run.items_updated }} updated{% if h.last_run.items_rejected %}, {{ h.last_run.items_rejected }} refused{% endif %}{% else %}–{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<p class="small muted">"Refused" items failed Protect's format checks and were skipped; the server log says which. Wordfence needs a free API key in the server settings before it runs.</p>
+
+<div class="tiles">
+  <section class="tile"><div class="tile-value small-value">{{ php.supported | join(", ") if php.supported else "?" }}</div><div class="tile-label">Supported PHP branches (php.net)</div></section>
+  <section class="tile"><div class="tile-value small-value">{% if php.latest %}{% for b, v in php.latest | dictsort %}{{ v }}{% if not loop.last %}, {% endif %}{% endfor %}{% else %}?{% endif %}</div><div class="tile-label">Latest PHP releases</div></section>
+  <section class="tile"><div class="tile-value">{{ kev_count if kev_count is not none else "?" }}</div><div class="tile-label">Flaws on CISA's exploited list</div></section>
+</div>
+
+<h2>Recent runs</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Started</th><th>Feed</th><th>Result</th><th>New</th><th>Updated</th><th>Refused</th><th>Note</th></tr></thead>
+  <tbody>
+  {% for r in runs %}
+    <tr>
+      <td class="small">{{ r.started_at.strftime("%Y-%m-%d %H:%M UTC") }}</td>
+      <td>{{ labels.get(r.source, r.source) }}</td>
+      <td>{{ r.status.value }}</td>
+      <td>{{ r.items_new }}</td>
+      <td>{{ r.items_updated }}</td>
+      <td>{{ r.items_rejected }}</td>
+      <td class="small">{{ r.error or "" }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="7" class="muted">No runs yet. The first runs start about a minute after the platform starts.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

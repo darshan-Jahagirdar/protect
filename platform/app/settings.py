@@ -71,6 +71,11 @@ class Settings(BaseSettings):
     ai_summary_thinking: Literal["low", "medium", "high"] = "medium"
     ai_draft_thinking: Literal["low", "medium", "high"] = "high"
 
+    # Live advisory feeds (DESIGN.md §4.3). They only download public data. Wordfence needs a
+    # free API key from a wordfence.com account; without one that feed stays off.
+    feeds_enabled: bool = True
+    wordfence_api_key: SecretStr | None = None
+
     # In-process scheduler. Off in tests; the app must run with ONE worker.
     scheduler_enabled: bool = True
 
@@ -98,7 +103,12 @@ class Settings(BaseSettings):
         return {a.strip().rstrip("/"): b.strip().rstrip("/") for a, b in pairs}
 
     @field_validator(
-        "secret_key", "gemini_api_key", "openai_api_key", "anthropic_api_key", mode="before"
+        "secret_key",
+        "gemini_api_key",
+        "openai_api_key",
+        "anthropic_api_key",
+        "wordfence_api_key",
+        mode="before",
     )
     @classmethod
     def _empty_secret_is_none(cls, v: object) -> object:

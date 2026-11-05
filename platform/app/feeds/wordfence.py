@@ -21,10 +21,10 @@ from sqlalchemy import select
 
 from app.engine.catalogue import is_valid_key
 from app.engine.versions import parse_loose
-from app.enums import ReviewStatus
+from app.enums import ReviewStatus, SiteStatus
 from app.feeds import clean
 from app.feeds.runner import FeedContext, FeedOutcome, store
-from app.models import SiteComponent
+from app.models import Site, SiteComponent
 
 SOURCE = "wordfence"
 URL = "https://www.wordfence.com/api/intelligence/v3/vulnerabilities/production"
@@ -58,7 +58,14 @@ def run(ctx: FeedContext, out: FeedOutcome) -> None:
 
 
 def installed_keys(ctx: FeedContext) -> set[str]:
-    keys = set(ctx.session.scalars(select(SiteComponent.component_key).distinct()))
+    keys = set(
+        ctx.session.scalars(
+            select(SiteComponent.component_key)
+            .join(Site)
+            .where(Site.status != SiteStatus.REMOVED)
+            .distinct()
+        )
+    )
     return {k for k in keys if k.startswith(("wp-plugin:", "wp-theme:"))} | {"wordpress"}
 
 

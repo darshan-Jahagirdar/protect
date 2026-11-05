@@ -87,6 +87,7 @@ uv run uvicorn app.main:app --reload --port 8000           # or use the `platfor
 
 # admin CLI (in the demo: docker compose -f docker/compose.yaml exec platform python -m app.cli ...)
 python -m app.cli add-site | new-code | list-sites
+python -m app.cli remove-site --site-id 1 --url http://127.0.0.1:8081   # client left: stop watching, keep history (refused while a case is unresolved)
 python -m app.cli replay-advisory php2shell|drill-plugin    # match now; alerts go out on the next scheduler run
 python -m app.cli list-incidents | send-alerts | send-digest | ack-incident <id>
 python -m app.cli run-feed ghsa|php-releases|phpnet-news|kev|nvd|wordfence|all   # the scheduler runs them on its own

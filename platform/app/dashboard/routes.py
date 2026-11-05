@@ -672,6 +672,8 @@ def site_observe(
 ) -> Response:
     """View the site's public homepage now (one GET /, headers only)."""
     site = _get(session, Site, site_id)
+    if site.status is SiteStatus.REMOVED:  # no longer ours to look at
+        raise HTTPException(status_code=400)
     observe_site(session, site, request.app.state.settings, observe_fn=request.app.state.observe)
     _audit(session, viewer.user, "observed", str(site.id))
     session.commit()

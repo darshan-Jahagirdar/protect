@@ -4,6 +4,7 @@
         --host-type managed-wp
     uv run python -m app.cli new-code --site-id 1
     uv run python -m app.cli list-sites
+    uv run python -m app.cli remove-site --site-id 1 --url http://127.0.0.1:8081   # client left
     uv run python -m app.cli replay-advisory php2shell      # or drill-plugin
     uv run python -m app.cli list-incidents
     uv run python -m app.cli send-alerts                     # the scheduler does this every 60s
@@ -22,11 +23,12 @@ import argparse
 import sys
 
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from app.alerts.mailer import Message, mailer_for
 from app.dashboard.credentials import SETUP_LINK_HOURS, setup_link, start_setup
 from app.db import SessionLocal
-from app.enums import HostType, UserRole
+from app.enums import HostType, SiteStatus, UserRole
 from app.feeds.registry import BY_NAME, FEEDS
 from app.feeds.runner import run_feed
 from app.models import FeedRun, Incident, Site, User
@@ -37,8 +39,9 @@ from app.services.alerting import (
     send_digest,
     send_due_alerts,
 )
-from app.services.enrollment import create_site, issue_code
+from app.services.enrollment import create_site, issue_code, normalize_url
 from app.services.incidents import apply_advisory
+from app.services.sites import SiteRemovalError, remove_site
 from app.settings import Settings, get_settings
 
 
@@ -46,6 +49,28 @@ def _print_code(site: Site, code: str) -> None:
     hours = get_settings().enrollment_code_ttl_hours
     print(f"Site #{site.id}: {site.business_name} ({site.url})")
     print(f"Enrollment code (valid {hours}h, shown once): {code}")
+
+
+def _remove_site(session: Session, site_id: int, url: str) -> int:
+    site = session.get(Site, site_id)
+    if site is None:
+        print(f"no site with id {site_id}", file=sys.stderr)
+        return 1
+    try:
+        same = normalize_url(url) == site.url
+    except ValueError:
+        same = False
+    if not same:
+        print(f"site #{site.id} is {site.url}, not {url}; nothing removed", file=sys.stderr)
+        return 1
+    try:
+        remove_site(session, site)
+    except SiteRemovalError as e:
+        print(f"{e}; nothing removed", file=sys.stderr)
+        return 1
+    session.commit()
+    print(f"Removed site #{site.id}: {site.business_name} ({site.url}). Its history is kept.")
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -61,6 +86,9 @@ def main(argv: list[str] | None = None) -> int:
     code.add_argument("--site-id", type=int, required=True)
 
     sub.add_parser("list-sites", help="list registered sites")
+    rm = sub.add_parser("remove-site", help="stop watching a site (its history is kept)")
+    rm.add_argument("--site-id", type=int, required=True)
+    rm.add_argument("--url", required=True, help="the site's URL, to confirm the right site")
 
     feed = sub.add_parser("run-feed", help="run a live advisory feed now (the scheduler does it)")
     feed.add_argument("name", choices=[*BY_NAME, "all"])
@@ -99,6 +127,9 @@ def main(argv: list[str] | None = None) -> int:
             if site is None:
                 print(f"no site with id {args.site_id}", file=sys.stderr)
                 return 1
+            if site.status is SiteStatus.REMOVED:
+                print(f"site #{site.id} was removed and can't be reconnected", file=sys.stderr)
+                return 1
             plain = issue_code(session, site, ttl)
             session.commit()
             _print_code(site, plain)
@@ -108,6 +139,8 @@ def main(argv: list[str] | None = None) -> int:
                     s.last_report_at.isoformat(timespec="seconds") if s.last_report_at else "never"
                 )
                 print(f"#{s.id}  {s.status.value:<8} {s.url:<40} last report: {last}")
+        elif args.cmd == "remove-site":
+            return _remove_site(session, args.site_id, args.url)
         elif args.cmd == "run-feed":
             return _run_feeds(settings, args.name)
         elif args.cmd == "list-feeds":
